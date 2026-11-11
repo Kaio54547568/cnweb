@@ -1,0 +1,38 @@
+{
+  "name": "cnweb-backend",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "test:smoke": "node --test tests/platform-smoke.test.cjs",
+    "start:api": "node dist/api.js",
+    "start:worker": "node dist/worker.js",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "account:role": "node dist/account-role.js",
+    "dictionary:import": "node dist/dictionary-import.js",
+    "dictionary:import-vi": "node dist/dictionary-import-vi.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@nestjs/swagger": "^11.2.0",
+    "@prisma/client": "6.19.0",
+    "bullmq": "^5.58.0",
+    "dotenv": "^17.0.0",
+    "ioredis": "5.11.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "prisma": "6.19.0",
+    "typescript": "~5.9.3"
+  }
+}

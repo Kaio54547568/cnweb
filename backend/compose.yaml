@@ -1,0 +1,33 @@
+name: backend-nest
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: cnweb
+      POSTGRES_USER: cnweb
+      POSTGRES_PASSWORD: cnweb_local
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cnweb", "-d", "cnweb"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+volumes:
+  postgres-data:
+  redis-data:

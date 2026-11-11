@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Xem thử phụ đề</title>
+  <style>
+    body { font: 1rem system-ui, sans-serif; margin: 2rem auto; padding: 0 1rem; max-width: 48rem; }
+    iframe { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
+    #active { min-height: 3rem; white-space: pre-wrap; }
+    .hide-translation .translation { display: none; }
+    li { margin-bottom: .5rem; }
+    button { margin-right: .5rem; }
+    .lookup-word { margin: 0; padding: 0; font: inherit; color: inherit; background: transparent;
+      border: 0; text-decoration: underline dotted; cursor: pointer; }
+  </style>
+  <script type="module" src="/api/v1/preview/player.js"></script>
+</head>
+<body>
+  <h1 id="title">Xem thử phụ đề</h1>
+  <p id="status" role="status">Đang tải tập…</p>
+  <div id="player"></div>
+  <p>
+    <label>Tốc độ phát <select id="playback-rate" disabled><option value="1">1×</option></select></label>
+    <button id="toggle-translation" type="button" aria-pressed="true" disabled>Bản dịch tiếng Việt</button>
+  </p>
+  <p id="loop-status" role="status"></p>
+  <p><button id="resume" hidden>Xem tiếp</button> <a href="/learning">Mở sổ tay</a></p>
+  <p id="bookmark-login" hidden><a href="/">Đăng nhập</a> để lưu câu và từ vào sổ tay.</p>
+  <p id="learning-status" role="status"></p>
+  <h2>Phụ đề đang phát</h2>
+  <div id="active"></div>
+  <h2>Tra từ Nhật</h2>
+  <form id="dictionary">
+    <label>Từ hoặc kanji <input id="term" required maxlength="80"></label>
+    <button>Tra từ</button>
+  </form>
+  <ul id="definitions"></ul>
+  <p id="dictionary-bookmark-status" role="status"></p>
+  <small><a href="https://www.edrdg.org/edrdg/licence.html">Từ điển JMdict và KANJIDIC2 · EDRDG</a></small>
+  <h2>Transcript</h2>
+  <ol id="transcript"></ol>
+</body>
+</html>

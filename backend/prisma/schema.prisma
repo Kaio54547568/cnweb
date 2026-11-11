@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SmokeResult {
+  jobId       String   @id @map("job_id")
+  requestId   String   @map("request_id")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("smoke_results")
+}
+
+enum NlpStatus {
+  PENDING
+  READY
+  FAILED
+  SUPERSEDED
+}
+
+enum AccountRole {
+  LEARNER
+  EDITOR
+}
+
+enum EpisodeVisibility {
+  SAMPLE
+  MEMBER
+}
+
+enum JlptLevel {
+  N5
+  N4
+  N3
+  N2
+  N1
+}
+
+model Account {
+  id            String             @id @default(uuid()) @db.Uuid
+  googleSubject String?            @unique @map("google_subject")
+  role          AccountRole        @default(LEARNER)
+  disabledAt    DateTime?          @map("disabled_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  displayName   String?            @map("display_name")
+  jlptLevel     JlptLevel?         @map("jlpt_level")
+  learningLanguage String          @default("ja") @map("learning_language")
+  revisions     SubtitleRevision[]
+  bookmarks     Bookmark[]
+  checkpoints   Checkpoint[]
+
+  @@map("accounts")
+}
+
+model Channel {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  source    String    @default("YouTube")
+  imageUrl  String?   @map("image_url")
+  series    Series[]
+  episodes  Episode[]
+
+  @@map("channels")
+}
+
+model Series {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique
+  title       String
+  description String    @default("")
+  language    String    @default("ja")
+  level       String?
+  genre       String?
+  channelId   String?   @map("channel_id") @db.Uuid
+  channel     Channel?  @relation(fields: [channelId], references: [id])
+  episodes    Episode[]
+
+  @@index([channelId])
+  @@map("series")
+}
+
+model Episode {
+  id                 String @id @default(uuid()) @db.Uuid
+  youtubeId          String @map("youtube_id")
+  title              String
+  channelName        String? @map("channel_name")
+  seriesTitle        String? @map("series_title")
+  seriesId           String? @map("series_id") @db.Uuid
+  series             Series? @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  channelId          String? @map("channel_id") @db.Uuid
+  channel            Channel? @relation(fields: [channelId], references: [id])
+  episodeNumber      Int? @map("episode_number")
+  durationMs         Int? @map("duration_ms")
+  visibility         EpisodeVisibility @default(MEMBER)
+  draftId            String? @unique @map("draft_id") @db.Uuid
+  publishedId        String? @unique @map("published_id") @db.Uuid
+  draft              SubtitleRevision? @relation("CurrentDraft", fields: [draftId], references: [id])
+  published          SubtitleRevision? @relation("CurrentPublication", fields: [publishedId], references: [id])
+  revisions          SubtitleRevision[] @relation("EpisodeHistory")
+  bookmarks          Bookmark[]
+  checkpoints        Checkpoint[]
+  speakers           Speaker[]
+  subtitleCues       SubtitleCue[]
+
+  @@unique([seriesId, episodeNumber])
+  @@index([channelId])
+  @@map("episodes")
+}
+
+model Speaker {
+  id        String  @id @default(uuid()) @db.Uuid
+  episodeId String  @map("episode_id") @db.Uuid
+  episode   Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?
+  avatarUrl String? @map("avatar_url")
+  lines     SubtitleLine[]
+
+  @@unique([episodeId, id])
+  @@unique([episodeId, name])
+  @@map("speakers")
+}
+
+model SubtitleCue {
+  episodeId String @map("episode_id") @db.Uuid
+  id        String @db.Uuid
+  episode   Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  lines     SubtitleLine[]
+  bookmarks Bookmark[]
+
+  @@id([episodeId, id])
+  @@map("subtitle_cues")
+}
+
+model SubtitleRevision {
+  id               String @id @default(uuid()) @db.Uuid
+  episodeId        String @map("episode_id") @db.Uuid
+  episode          Episode @relation("EpisodeHistory", fields: [episodeId], references: [id])
+  draftFor         Episode? @relation("CurrentDraft")
+  publishedFor     Episode? @relation("CurrentPublication")
+  sourceDraftId    String? @map("source_draft_id") @db.Uuid
+  requestId        String @map("request_id")
+  authorId         String? @map("author_id") @db.Uuid
+  author           Account? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  legacyCues       Json @default("[]") @map("cues")
+  lines            SubtitleLine[]
+  nlpStatus        NlpStatus @default(PENDING) @map("nlp_status")
+  nextDispatchAt   DateTime @default(now()) @map("next_dispatch_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([nlpStatus, nextDispatchAt])
+  @@unique([episodeId, id])
+  @@map("subtitle_revisions")
+}
+
+model SubtitleLine {
+  revisionId    String           @map("revision_id") @db.Uuid
+  episodeId     String           @map("episode_id") @db.Uuid
+  cueId         String           @map("cue_id") @db.Uuid
+  speakerId     String?          @map("speaker_id") @db.Uuid
+  revision      SubtitleRevision @relation(fields: [episodeId, revisionId], references: [episodeId, id], onDelete: Cascade, onUpdate: NoAction)
+  cue           SubtitleCue      @relation(fields: [episodeId, cueId], references: [episodeId, id], onDelete: Restrict, onUpdate: NoAction)
+  speaker       Speaker?         @relation(fields: [episodeId, speakerId], references: [episodeId, id], onDelete: Restrict, onUpdate: NoAction)
+  ordinal       Int
+  startMs       Int              @map("start_ms")
+  endMs         Int              @map("end_ms")
+  text          String
+  translationVi String           @map("translation_vi")
+  tokens        Json?
+
+  @@id([revisionId, cueId])
+  @@unique([revisionId, ordinal])
+  @@index([episodeId, startMs])
+  @@index([episodeId, cueId])
+  @@map("subtitle_lines")
+}
+
+model DictionaryEntry {
+  id        String           @id
+  headword  String
+  readings  String[]
+  glosses   Json
+  vietnamese DictionaryVietnamese?
+  terms     DictionaryTerm[]
+  bookmarks Bookmark[]
+
+  @@map("dictionary_entries")
+}
+
+model DictionaryVietnamese {
+  entryId   String          @id @map("entry_id")
+  entry     DictionaryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  meaningVi String          @map("meaning_vi")
+  source    String
+
+  @@map("dictionary_vietnamese")
+}
+
+model DictionaryTerm {
+  term    String
+  entryId String          @map("entry_id")
+  entry   DictionaryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([term, entryId])
+  @@index([entryId])
+  @@map("dictionary_terms")
+}
+
+model Bookmark {
+  accountId String           @map("account_id") @db.Uuid
+  account   Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  key       String
+  episodeId String?          @map("episode_id") @db.Uuid
+  episode   Episode?         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  cueId     String?          @map("cue_id") @db.Uuid
+  cue       SubtitleCue?     @relation(fields: [episodeId, cueId], references: [episodeId, id], onDelete: Restrict, onUpdate: NoAction)
+  entryId   String?          @map("entry_id")
+  entry     DictionaryEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@id([accountId, key])
+  @@index([accountId, createdAt])
+  @@map("bookmarks")
+}
+
+model Checkpoint {
+  accountId  String   @map("account_id") @db.Uuid
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  episodeId  String   @map("episode_id") @db.Uuid
+  episode    Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  positionMs Int      @map("position_ms")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@id([accountId, episodeId])
+  @@index([accountId, updatedAt])
+  @@map("checkpoints")
+}

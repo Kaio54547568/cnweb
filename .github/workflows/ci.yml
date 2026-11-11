@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build, migrate and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://cnweb:cnweb_ci@127.0.0.1:5432/cnweb_ci?connect_timeout=3&socket_timeout=3
+      REDIS_URL: redis://127.0.0.1:6379/0
+      NEXT_TELEMETRY_DISABLED: '1'
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: cnweb_ci
+          POSTGRES_USER: cnweb
+          POSTGRES_PASSWORD: cnweb_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cnweb -d cnweb_ci"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Build NestJS
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify PostgreSQL migrations
+        working-directory: backend
+        run: |
+          npm exec -- prisma validate
+          npm run db:migrate:deploy
+          npm run db:migrate:status
+          npm exec -- prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Smoke test API and worker
+        working-directory: backend
+        run: npm run test:smoke
+
+      - name: Build Next.js
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
