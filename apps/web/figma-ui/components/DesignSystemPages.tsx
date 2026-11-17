@@ -47,7 +47,8 @@ import {
   ORDER_DRINK_TRANSCRIPT,
   DICTIONARY_ENTRIES,
 } from "../data/mockData";
-import { MVPSharedState, ScreenId } from "./MVPScreens";
+import type { MVPSharedState } from "./legacyState";
+import type { ScreenId } from "./appState";
 
 /* ============================================================================
  * PAGE 00: 00 Foundations

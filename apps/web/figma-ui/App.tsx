@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { EPISODES_LIST, Episode, TranscriptItem, WordEntry } from "./data/mockData";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { signIn, signOut, useSession } from "next-auth/react";
+import type { Episode, TranscriptItem, WordEntry } from "./data/mockData";
 import { Toast } from "./components/DesignSystem";
-import { ScreenViewport, ScreenId, MVPSharedState } from "./components/MVPScreens";
+import { ScreenViewport } from "./components/MVPScreens";
+import type { AppState, ScreenId, WatchTarget } from "./components/appState";
 import { WireframesWorkspace } from "./wireframes/WireframesWorkspace";
+import { ApiCheckpoint, ApiError, ApiMe, endpoints, errorMessage } from "./lib/api";
+import { cueKey, wordKey } from "./lib/mappers";
 
 export default function App() {
   // Đồng bộ tiêu đề trang web sang Kotoba
@@ -16,7 +20,7 @@ export default function App() {
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   });
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme((prev) => {
       const next = prev === "dark" ? "light" : "dark";
       try {
@@ -26,7 +30,7 @@ export default function App() {
       }
       return next;
     });
-  };
+  }, []);
 
   // Kiểm tra đường dẫn /wireframes nếu người dùng truy cập trực tiếp URL
   const [isWireframesRoute, setIsWireframesRoute] = useState<boolean>(() => {
@@ -60,125 +64,207 @@ export default function App() {
     setIsWireframesRoute(false);
   };
 
-  // Trạng thái màn hình ứng dụng Kotoba (Home, Library, Watch, Notebook, Auth)
-  const [currentScreen, setCurrentScreen] = useState<ScreenId>("Home");
+  /* ------------------------------ Phiên đăng nhập ------------------------------ */
+  const { data: session, status } = useSession();
+  const accountId = session?.accountId;
+  const isLoggedIn = status === "authenticated" && Boolean(accountId);
+  const authStatus: AppState["authStatus"] =
+    status === "loading" ? "loading" : isLoggedIn ? "authenticated" : "unauthenticated";
 
-  // Trạng thái học tập thực tế (giữ tiến độ, lưu từ vựng/câu/series bằng nút tim)
-  const [selectedEpisode, setSelectedEpisode] = useState<Episode>(EPISODES_LIST[0]);
-  const [currentTimeSec, setCurrentTimeSec] = useState<number>(92); // 01:32 giữ tiến độ mặc định
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [savedSeriesIds, setSavedSeriesIds] = useState<string[]>(["series-cafe"]);
-  const [savedWordIds, setSavedWordIds] = useState<string[]>(["chuumon", "osusume"]);
-  const [savedSentenceIds, setSavedSentenceIds] = useState<string[]>(["sub-1", "sub-3"]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [levelFilter, setLevelFilter] = useState<string>("ALL");
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
-  const [userName, setUserName] = useState<string>("Minh Anh");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /* -------------------------------- Giao diện -------------------------------- */
+  const [screen, setScreen] = useState<ScreenId>("Home");
+  const [watch, setWatch] = useState<WatchTarget | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [levelFilter, setLevelFilter] = useState("ALL");
+  const [seriesFilter, setSeriesFilter] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; tone: "success" | "error" } | null>(null);
 
-  // Đồng hồ phát: mỗi giây tiến 1s khi đang phát, dừng ở cuối tập
-  useEffect(() => {
-    if (!isPlaying) return;
-    const total = selectedEpisode.durationSeconds;
-    const id = window.setInterval(() => {
-      setCurrentTimeSec((t) => {
-        if (t + 1 >= total) {
-          setIsPlaying(false);
-          return total;
-        }
-        return t + 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [isPlaying, selectedEpisode.durationSeconds]);
-
-  const formatTime = (sec: number) =>
-    `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
-
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
+  const notify = useCallback((text: string, tone: "success" | "error" = "success") => {
+    setToastMessage({ text, tone });
     window.setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 3200);
-  };
+      setToastMessage((prev) => (prev?.text === text ? null : prev));
+    }, 3600);
+  }, []);
 
-  const sharedState: MVPSharedState = {
-    currentScreen,
-    onNavigate: (scr) => {
-      if (scr !== "Watch") setIsPlaying(false);
-      setCurrentScreen(scr);
-      window.scrollTo({ top: 0 });
-    },
-    selectedEpisode,
-    onSelectEpisode: (ep, resume = true, startAt) => {
-      const resumeAt = resume && ep.lastWatchedSecond > 0 ? ep.lastWatchedSecond : 0;
-      setSelectedEpisode(ep);
-      setCurrentTimeSec(startAt ?? resumeAt);
-      setCurrentScreen("Watch");
-      setIsPlaying(true);
-      window.scrollTo({ top: 0 });
-      if (startAt === undefined && resumeAt > 0) {
-        triggerToast(`Xem tiếp "${ep.title}" từ ${formatTime(resumeAt)}`);
+  const fail = useCallback(
+    (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        notify("Phiên đăng nhập đã hết. Hãy đăng nhập lại bằng Google.", "error");
+      } else {
+        notify(errorMessage(error), "error");
       }
     },
-    currentTimeSec,
-    onSeekTime: (sec) => {
-      setCurrentTimeSec(sec);
-    },
-    isPlaying,
-    onTogglePlay: () => setIsPlaying((p) => !p),
-    savedSeriesIds,
-    onToggleSaveSeries: (seriesId) => {
-      setSavedSeriesIds((prev) => {
-        const exists = prev.includes(seriesId);
-        triggerToast(exists ? "Đã bỏ lưu series khỏi Sổ tay" : "Đã lưu series vào Sổ tay cá nhân");
-        return exists ? prev.filter((id) => id !== seriesId) : [...prev, seriesId];
+    [notify],
+  );
+
+  const navigate = useCallback((next: ScreenId) => {
+    setScreen(next);
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  const openEpisode = useCallback((episode: Episode, options?: { startAt?: number }) => {
+    setWatch({ episode, startAt: options?.startAt, nonce: Date.now() });
+    setScreen("Watch");
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  /* ------------------------------ Hồ sơ, Sổ tay ------------------------------ */
+  const [profile, setProfile] = useState<ApiMe | null>(null);
+  const [checkpoints, setCheckpoints] = useState<ApiCheckpoint[]>([]);
+  const [savedKeys, setSavedKeys] = useState<ReadonlySet<string>>(new Set());
+  const savedRef = useRef(savedKeys);
+  savedRef.current = savedKeys;
+  const pending = useRef(new Set<string>());
+
+  const refreshCheckpoints = useCallback(() => {
+    if (!accountId) return;
+    endpoints
+      .checkpoints()
+      .then(({ items }) => setCheckpoints(items))
+      .catch(() => undefined);
+  }, [accountId]);
+
+  useEffect(() => {
+    if (!accountId) {
+      setProfile(null);
+      setCheckpoints([]);
+      setSavedKeys(new Set());
+      return;
+    }
+    const controller = new AbortController();
+    endpoints
+      .me(controller.signal)
+      .then(setProfile)
+      .catch((error) => {
+        if (!controller.signal.aborted) fail(error);
       });
+    endpoints
+      .bookmarks(1, controller.signal)
+      .then(({ items }) => setSavedKeys((prev) => new Set([...prev, ...items.map((item) => item.key)])))
+      .catch(() => undefined);
+    refreshCheckpoints();
+    return () => controller.abort();
+  }, [accountId, fail, refreshCheckpoints]);
+
+  const mergeSavedKeys = useCallback((keys: string[], scopePrefix?: string) => {
+    setSavedKeys((prev) => {
+      const next = new Set(scopePrefix ? [...prev].filter((key) => !key.startsWith(scopePrefix)) : prev);
+      keys.forEach((key) => next.add(key));
+      return next;
+    });
+  }, []);
+
+  const markSaved = useCallback((key: string, saved: boolean) => {
+    setSavedKeys((prev) => {
+      const next = new Set(prev);
+      if (saved) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  /** Lưu / bỏ lưu tức thì (lạc quan); hoàn lại khi API lỗi. */
+  const toggleBookmark = useCallback(
+    async (key: string, body: { episodeId: string; cueId: string } | { entryId: string }, label: string) => {
+      if (!isLoggedIn) {
+        notify("Đăng nhập bằng Google để lưu vào Sổ tay.", "error");
+        return;
+      }
+      if (pending.current.has(key)) return;
+      pending.current.add(key);
+      const wasSaved = savedRef.current.has(key);
+      markSaved(key, !wasSaved);
+      try {
+        if (wasSaved) await endpoints.removeBookmark(key);
+        else await endpoints.saveBookmark(body);
+        notify(wasSaved ? `Đã bỏ lưu ${label} khỏi Sổ tay` : `Đã lưu ${label} vào Sổ tay`);
+      } catch (error) {
+        markSaved(key, wasSaved);
+        fail(error);
+      } finally {
+        pending.current.delete(key);
+      }
     },
-    savedWordIds,
-    onToggleSaveWord: (entry: WordEntry) => {
-      setSavedWordIds((prev) => {
-        const exists = prev.includes(entry.id);
-        triggerToast(
-          exists
-            ? `Đã xóa từ "${entry.word}" khỏi Sổ tay`
-            : `Đã lưu từ "${entry.word}" (${entry.meaningVi}) vào Sổ tay`,
-        );
-        return exists ? prev.filter((id) => id !== entry.id) : [...prev, entry.id];
-      });
+    [fail, isLoggedIn, markSaved, notify],
+  );
+
+  const toggleWord = useCallback(
+    (entry: WordEntry) => void toggleBookmark(wordKey(entry.id), { entryId: entry.id }, `từ “${entry.word}”`),
+    [toggleBookmark],
+  );
+  const toggleCue = useCallback(
+    (episodeId: string, item: TranscriptItem) =>
+      void toggleBookmark(cueKey(episodeId, item.id), { episodeId, cueId: item.id }, `câu tại ${item.startTime}`),
+    [toggleBookmark],
+  );
+
+  const updateProfile = useCallback(
+    async (patch: { displayName?: string | null; jlptLevel?: string | null }) => {
+      try {
+        setProfile(await endpoints.updateMe(patch));
+        return true;
+      } catch (error) {
+        fail(error);
+        return false;
+      }
     },
-    savedSentenceIds,
-    onToggleSaveSentence: (item: TranscriptItem) => {
-      setSavedSentenceIds((prev) => {
-        const exists = prev.includes(item.id);
-        triggerToast(
-          exists
-            ? "Đã bỏ lưu câu phụ đề khỏi Sổ tay"
-            : `Đã lưu câu tại ${item.startTime} vào Sổ tay`,
-        );
-        return exists ? prev.filter((id) => id !== item.id) : [...prev, item.id];
-      });
-    },
-    searchQuery,
-    onSearchChange: setSearchQuery,
-    levelFilter,
-    onLevelFilterChange: setLevelFilter,
-    isLoggedIn,
-    userName,
-    theme,
-    onToggleTheme: toggleTheme,
-    onLoginSuccess: (email) => {
-      const namePart = email.split("@")[0] || "Học viên";
-      setUserName(namePart);
-      setIsLoggedIn(true);
-      setCurrentScreen("Home");
-      triggerToast(`Đăng nhập thành công với ${email}`);
-    },
-    onLogout: () => {
-      setIsLoggedIn(false);
-      triggerToast("Đã đăng xuất khỏi Kotoba");
-    },
-  };
+    [fail],
+  );
+
+  const deleteAccount = useCallback(async () => {
+    try {
+      await endpoints.deleteMe();
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      fail(error);
+    }
+  }, [fail]);
+
+  const login = useCallback(() => {
+    void signIn("google", { callbackUrl: "/" }).catch(() => notify("Đăng nhập tạm thời gián đoạn.", "error"));
+  }, [notify]);
+  const logout = useCallback(() => void signOut({ callbackUrl: "/" }), []);
+
+  const userName = profile?.displayName || session?.user?.name || "Học viên";
+
+  const state: AppState = useMemo(
+    () => ({
+      screen,
+      navigate,
+      authStatus,
+      isLoggedIn,
+      userName,
+      profile,
+      login,
+      logout,
+      updateProfile,
+      deleteAccount,
+      watch,
+      openEpisode,
+      searchQuery,
+      setSearchQuery,
+      levelFilter,
+      setLevelFilter,
+      seriesFilter,
+      setSeriesFilter,
+      savedKeys,
+      mergeSavedKeys,
+      markSaved,
+      toggleWord,
+      toggleCue,
+      checkpoints,
+      refreshCheckpoints,
+      theme,
+      toggleTheme,
+      notify: (message: string) => notify(message),
+      fail,
+    }),
+    [
+      screen, navigate, authStatus, isLoggedIn, userName, profile, login, logout, updateProfile, deleteAccount,
+      watch, openEpisode, searchQuery, levelFilter, seriesFilter, savedKeys, mergeSavedKeys, markSaved,
+      toggleWord, toggleCue, checkpoints, refreshCheckpoints, theme, toggleTheme, notify, fail,
+    ],
+  );
 
   if (isWireframesRoute) {
     return <WireframesWorkspace onBackToColorUI={closeWireframesArea} />;
@@ -189,12 +275,12 @@ export default function App() {
       {/* Toast phản hồi nổi */}
       {toastMessage && (
         <div className="fixed z-50 bottom-20 left-4 right-4 md:bottom-5 md:left-auto md:right-5 flex md:block justify-center">
-          <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+          <Toast message={toastMessage.text} tone={toastMessage.tone} onClose={() => setToastMessage(null)} />
         </div>
       )}
 
       {/* Giao diện website frontend chính của Kotoba */}
-      <ScreenViewport screen={currentScreen} state={sharedState} />
+      <ScreenViewport screen={screen} state={state} />
     </div>
   );
 }

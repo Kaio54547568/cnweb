@@ -1,4 +1,4 @@
-export type JLPTLevel = "N5" | "N4" | "N3" | "N2";
+export type JLPTLevel = "N5" | "N4" | "N3" | "N2" | "N1";
 
 export interface RubySegment {
   kanji: string;
@@ -16,46 +16,59 @@ export interface TranscriptItem {
   jpPlain: string;
   readingPlain: string;
   vi: string;
+  /** Giai đoạn 2 (chưa có API): ghi chú ngữ pháp từng câu. */
   grammarNote?: string;
-  level: JLPTLevel;
+  /** Giai đoạn 2 (chưa có API): trình độ từng câu. */
+  level?: JLPTLevel;
+  /** Từ có thể tra trong câu, khóa theo `RubySegment.dictId`. */
+  words?: Record<string, { lemma: string; surface: string }>;
 }
 
 export interface WordEntry {
   id: string;
   word: string;
   furigana: string;
-  romaji: string;
-  pos: string;
-  level: JLPTLevel;
+  romaji?: string;
+  /** Chưa có API từ điển trả từ loại / JLPT: ẩn khi thiếu. */
+  pos?: string;
+  level?: JLPTLevel;
   meaningVi: string;
   exampleJp: RubySegment[];
-  exampleVi: string;
-  episodeTitle: string;
-  timestamp: string;
+  exampleVi?: string;
+  episodeTitle?: string;
+  timestamp?: string;
 }
 
 export interface Episode {
   id: string;
   seriesId: string;
+  seriesSlug?: string;
+  seriesTitle?: string;
+  /** 0 = tập lẻ (không có số tập). */
   number: number;
   title: string;
   jpTitle: RubySegment[];
+  /** Rỗng / 0 khi API chưa trả thời lượng. */
   duration: string;
   durationSeconds: number;
-  level: JLPTLevel;
+  level?: JLPTLevel;
+  /** Rỗng khi chưa có ảnh bìa. */
   thumbnail: string;
   progressPercent: number;
   lastWatchedSecond: number;
   subtitleCount: number;
   description: string;
+  visibility?: "SAMPLE" | "MEMBER";
 }
 
 export interface SeriesItem {
   id: string;
+  slug?: string;
   title: string;
   jpTitle: RubySegment[];
-  level: JLPTLevel;
-  episodeCount: number;
+  level?: JLPTLevel;
+  /** Chưa có API: ẩn khi thiếu. */
+  episodeCount?: number;
   category: string;
   channelName: string;
   thumbnail: string;

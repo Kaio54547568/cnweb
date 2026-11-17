@@ -4,10 +4,10 @@ Web chạy danh mục, đăng nhập Google qua Auth.js và trang biên tập. [
 
 Hai lớp giao diện cùng tồn tại:
 
-- **Giao diện Figma** (`figma-ui/`, route `/` và `/wireframes`): đủ các màn hình Trang chủ, Kho nội dung, Xem tập, Đăng nhập, Sổ tay và design system, đang dùng dữ liệu giả (`figma-ui/data/mockData.ts`). Được nạp bằng `components/figma-app.tsx` (client-only). Việc cần làm tiếp: thay dữ liệu giả bằng gọi API từng màn hình.
+- **Giao diện Figma** (`figma-ui/`, route `/` và `/wireframes`): Trang chủ, Kho nội dung, Xem tập, Hồ sơ/Đăng nhập, Sổ tay, đã nối API thật qua BFF cùng origin (`/api/v1/*`). Đăng nhập chỉ Google (Auth.js, `SessionProvider` trong `components/figma-app.tsx`). Cấu trúc: `screens/` (mỗi màn hình một file), `lib/api.ts` (client + kiểu phản hồi), `lib/mappers.ts` (API → kiểu giao diện), `components/YouTubePlayer.tsx` (IFrame, đồng bộ phụ đề), `components/appState.ts` (trạng thái dùng chung). Các trường API chưa có (ảnh bìa, thời lượng, từ loại…) được đọc sẵn dạng tùy chọn và ẩn khi thiếu; xem [docs/guides/yeu-cau-api-backend.md](../../docs/guides/yeu-cau-api-backend.md). `data/mockData.ts` chỉ còn dùng cho trang trình diễn design system và wireframes.
 - **Trang nối API thật** (`app/(legacy)/`: `/catalog`, `/account`, `/learning`, `/editorial`): giao diện tham chiếu của backend, đã có đăng nhập Google, phân quyền và CMS. `/catalog` đã dùng Tailwind theo token Figma.
 
-Design tokens ở `app/globals.css`. Hướng đi: chuyển dần từng màn hình trong `figma-ui/` sang route Next.js gọi API, rồi xóa trang `(legacy)` tương ứng.
+Design tokens ở `app/globals.css`. Chưa làm: CMS theo Figma (đang dùng `/editorial`), URL riêng cho từng màn hình (hiện chuyển màn bằng state, chưa có route/back-button).
 
 ## Chạy cục bộ
 

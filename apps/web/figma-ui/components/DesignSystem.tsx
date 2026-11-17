@@ -819,37 +819,52 @@ export const MobileNavigation: React.FC<{
   );
 };
 
+/* ----------------------------------------------------------------------------
+ * Thumb - ảnh bìa; hiện khối giữ chỗ khi API chưa trả thumbnailUrl
+ * -------------------------------------------------------------------------- */
+export const Thumb: React.FC<{ src?: string }> = ({ src }) =>
+  src ? (
+    <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+  ) : (
+    <span
+      aria-hidden="true"
+      className="w-full h-full flex items-center justify-center bg-gradient-to-br from-elevated to-canvas text-muted"
+    >
+      <Play className="w-6 h-6 opacity-40" />
+    </span>
+  );
+
 /* ============================================================================
  * 15. ContentCard - Thẻ Series tỷ lệ 16:9 chuẩn (cảm hứng lưới Akaiwa)
  * ========================================================================== */
 export const ContentCard: React.FC<{
   series: SeriesItem;
-  saved: boolean;
-  onToggleSave: (seriesId: string) => void;
+  saved?: boolean;
+  /** Bỏ qua để ẩn nút tim (đã bỏ tính năng lưu series khỏi MVP). */
+  onToggleSave?: (seriesId: string) => void;
   onWatch: (series: SeriesItem) => void;
   showAnnotation?: boolean;
-}> = ({ series, saved, onToggleSave, onWatch, showAnnotation = false }) => {
+}> = ({ series, saved = false, onToggleSave, onWatch, showAnnotation = false }) => {
   const started = series.progressPercent > 0;
   return (
     <article className="group rounded-[12px] bg-surface border border-line hover:border-muted/60 overflow-hidden flex flex-col transition-colors">
       <button
         type="button"
         onClick={() => onWatch(series)}
-        aria-label={`${started ? "Xem tiếp" : "Bắt đầu"} series ${series.title}`}
+        aria-label={`Xem các tập của series ${series.title}`}
         className="relative block aspect-video w-full bg-canvas overflow-hidden text-left cursor-pointer"
       >
-        <img
-          src={series.thumbnail}
-          alt=""
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-[8px] bg-black/65 text-white text-xs font-semibold">
-          {series.level}
-        </span>
-        <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-[8px] bg-black/65 text-white text-xs">
-          {series.episodeCount} tập
-        </span>
+        <Thumb src={series.thumbnail} />
+        {series.level && (
+          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-[8px] bg-black/65 text-white text-xs font-semibold">
+            {series.level}
+          </span>
+        )}
+        {series.episodeCount !== undefined && (
+          <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-[8px] bg-black/65 text-white text-xs">
+            {series.episodeCount} tập
+          </span>
+        )}
         <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           <span className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center shadow-lg">
             <Play className="w-5 h-5 fill-current ml-0.5" />
@@ -864,28 +879,30 @@ export const ContentCard: React.FC<{
 
       <div className="p-4 flex-1 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted">
-            {series.category} · {series.channelName}
-          </span>
+          {(series.category || series.channelName) && (
+            <span className="text-xs text-muted">
+              {[series.category, series.channelName].filter(Boolean).join(" · ")}
+            </span>
+          )}
           <h3 className="text-base font-semibold text-fg line-clamp-1">{series.title}</h3>
-          <RubyText segments={series.jpTitle} size="sm" />
-          <p className="text-sm text-muted line-clamp-2">{series.description}</p>
+          {series.jpTitle.length > 0 && <RubyText segments={series.jpTitle} size="sm" />}
+          {series.description && <p className="text-sm text-muted line-clamp-2">{series.description}</p>}
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2">
-          <span className="text-xs text-muted">
-            {started ? `Đã học ${series.progressPercent}%` : "Chưa bắt đầu"}
-          </span>
-          <IconButton
-            size="sm"
-            active={saved}
-            ariaLabel={
-              saved ? `Bỏ lưu series ${series.title}` : `Lưu series ${series.title} vào Sổ tay`
-            }
-            icon={<Heart className={`w-4 h-4 ${saved ? "fill-brand text-brand" : ""}`} />}
-            onClick={() => onToggleSave(series.id)}
-            showAnnotation={showAnnotation}
-          />
+          <span className="text-xs text-muted">{started ? `Đã học ${series.progressPercent}%` : ""}</span>
+          {onToggleSave && (
+            <IconButton
+              size="sm"
+              active={saved}
+              ariaLabel={
+                saved ? `Bỏ lưu series ${series.title}` : `Lưu series ${series.title} vào Sổ tay`
+              }
+              icon={<Heart className={`w-4 h-4 ${saved ? "fill-brand text-brand" : ""}`} />}
+              onClick={() => onToggleSave(series.id)}
+              showAnnotation={showAnnotation}
+            />
+          )}
         </div>
       </div>
     </article>
@@ -910,8 +927,11 @@ export const EpisodeRow: React.FC<{
   onToggleSave,
   showAnnotation = false,
 }) => {
-  const inProgress = episode.progressPercent > 0 && episode.progressPercent < 100;
   const done = episode.progressPercent >= 100;
+  const inProgress = episode.lastWatchedSecond > 0 && !done;
+  const resumeLabel = `${String(Math.floor(episode.lastWatchedSecond / 60)).padStart(2, "0")}:${String(
+    Math.floor(episode.lastWatchedSecond % 60),
+  ).padStart(2, "0")}`;
   return (
     <div
       className={`p-3 rounded-[12px] border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
@@ -922,25 +942,36 @@ export const EpisodeRow: React.FC<{
         <button
           type="button"
           onClick={() => onWatch(episode)}
-          aria-label={`Xem tập ${episode.number}: ${episode.title}`}
+          aria-label={`Xem tập: ${episode.title}`}
           className="relative w-28 aspect-video rounded-[8px] overflow-hidden bg-canvas shrink-0 cursor-pointer border border-line"
         >
-          <img src={episode.thumbnail} alt="" className="w-full h-full object-cover" />
-          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-xs font-mono text-white">
-            {episode.duration}
-          </span>
+          <Thumb src={episode.thumbnail} />
+          {episode.duration && (
+            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-xs font-mono text-white">
+              {episode.duration}
+            </span>
+          )}
         </button>
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted">
-            Tập {episode.number} · {episode.level}
-            {inProgress && ` · Đã xem ${episode.progressPercent}%`}
+            {[
+              episode.number > 0 ? `Tập ${episode.number}` : "Tập lẻ",
+              episode.level,
+              episode.seriesTitle,
+              episode.visibility === "SAMPLE" ? "Xem thử" : undefined,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            {inProgress && ` · Xem dở ${resumeLabel}`}
             {done && " · Đã xem xong"}
           </p>
           <h4 className="text-sm font-semibold text-fg mt-0.5 truncate">{episode.title}</h4>
-          <div className="truncate">
-            <RubyText segments={episode.jpTitle} size="sm" />
-          </div>
-          {inProgress && (
+          {episode.jpTitle.length > 0 && (
+            <div className="truncate">
+              <RubyText segments={episode.jpTitle} size="sm" />
+            </div>
+          )}
+          {inProgress && episode.progressPercent > 0 && (
             <div className="mt-1.5 max-w-[200px]">
               <ProgressBar percent={episode.progressPercent} />
             </div>
@@ -1105,15 +1136,17 @@ export const DictionaryPopover: React.FC<{
 
       <div>
         <p className="text-base font-semibold text-fg">{entry.meaningVi}</p>
-        <p className="text-xs text-muted mt-0.5">
-          {entry.pos} · {entry.level}
-        </p>
+        {(entry.pos || entry.level) && (
+          <p className="text-xs text-muted mt-0.5">{[entry.pos, entry.level].filter(Boolean).join(" · ")}</p>
+        )}
       </div>
 
-      <div className="p-3 rounded-[8px] bg-surface border border-line flex flex-col gap-1">
-        <RubyText segments={entry.exampleJp} size="sm" />
-        <span className="text-sm text-muted">{entry.exampleVi}</span>
-      </div>
+      {entry.exampleJp.length > 0 && (
+        <div className="p-3 rounded-[8px] bg-surface border border-line flex flex-col gap-1">
+          <RubyText segments={entry.exampleJp} size="sm" />
+          {entry.exampleVi && <span className="text-sm text-muted">{entry.exampleVi}</span>}
+        </div>
+      )}
     </div>
   );
 };
@@ -1131,10 +1164,12 @@ export const SavedWordCard: React.FC<{
     <div className="p-4 rounded-[12px] bg-surface border border-line flex flex-col justify-between gap-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="flex items-center gap-2">
-            <Badge tone="level">{entry.level}</Badge>
-            <span className="text-xs text-muted">{entry.pos}</span>
-          </div>
+          {(entry.level || entry.pos) && (
+            <div className="flex items-center gap-2">
+              {entry.level && <Badge tone="level">{entry.level}</Badge>}
+              {entry.pos && <span className="text-xs text-muted">{entry.pos}</span>}
+            </div>
+          )}
           <div className="mt-2 font-jp">
             <ruby className="text-xl font-bold text-fg">
               {entry.word}
@@ -1152,15 +1187,21 @@ export const SavedWordCard: React.FC<{
         />
       </div>
 
-      <div className="p-3 rounded-[8px] bg-canvas border border-line/60 flex flex-col gap-1">
-        <RubyText segments={entry.exampleJp} size="sm" />
-        <span className="text-xs text-muted">{entry.exampleVi}</span>
-      </div>
+      {entry.exampleJp.length > 0 && (
+        <div className="p-3 rounded-[8px] bg-canvas border border-line/60 flex flex-col gap-1">
+          <RubyText segments={entry.exampleJp} size="sm" />
+          {entry.exampleVi && <span className="text-xs text-muted">{entry.exampleVi}</span>}
+        </div>
+      )}
 
       <div className="flex items-center justify-between text-xs text-muted">
         <span>
-          Nguồn: <strong className="text-fg">{entry.episodeTitle}</strong> ({entry.timestamp}
-          )
+          {entry.episodeTitle && (
+            <>
+              Nguồn: <strong className="text-fg">{entry.episodeTitle}</strong>
+              {entry.timestamp && ` (${entry.timestamp})`}
+            </>
+          )}
         </span>
         {onJumpToEpisode && (
           <button
@@ -1187,7 +1228,7 @@ export const SavedSentenceCard: React.FC<{
   showAnnotation?: boolean;
 }> = ({
   sentence,
-  episodeTitle = "Gọi đồ uống",
+  episodeTitle = "",
   onRemove,
   onWatchSentence,
   showAnnotation = false,
@@ -1196,7 +1237,7 @@ export const SavedSentenceCard: React.FC<{
     <div className="p-4 rounded-[12px] bg-surface border border-line flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Badge tone="level">{sentence.level}</Badge>
+          {sentence.level && <Badge tone="level">{sentence.level}</Badge>}
           <span className="text-xs font-mono px-2 py-0.5 rounded bg-canvas text-muted">
             {sentence.startTime}
           </span>
