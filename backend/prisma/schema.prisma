@@ -184,6 +184,8 @@ model DictionaryEntry {
   headword  String
   readings  String[]
   glosses   Json
+  partsOfSpeech String[] @default([]) @map("parts_of_speech")
+  jlptLevel JlptLevel? @map("jlpt_level")
   vietnamese DictionaryVietnamese?
   terms     DictionaryTerm[]
   bookmarks Bookmark[]

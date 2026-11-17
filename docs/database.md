@@ -12,7 +12,7 @@ Schema nguồn nằm trong [Prisma schema](../backend/prisma/schema.prisma). Bac
 | Episode | `episodes` | YouTube ID, tiêu đề, series, số tập, thời lượng nếu biết, phạm vi xem và revision hiện hành. Số tập duy nhất trong một series. Tập lẻ có thể gắn trực tiếp với kênh. |
 | Speaker | `speakers` | Tên, màu và avatar tùy chọn. Tên duy nhất trong một tập. |
 | SubtitleLine | `subtitle_lines` | Mỗi dòng là một cue trong một revision, có `start_ms`, `end_ms`, câu Nhật, `translation_vi` và `tokens` JSONB. Index `(episode_id, start_ms)` hỗ trợ truy vấn theo thời gian. |
-| DictionaryEntry | `dictionary_entries`, `dictionary_terms` | ID nguồn JMdict/KANJIDIC2, cách viết, cách đọc, nghĩa và chỉ mục tra chính xác. |
+| DictionaryEntry | `dictionary_entries`, `dictionary_terms` | ID nguồn JMdict/KANJIDIC2, cách viết, cách đọc, nghĩa, từ loại (`parts_of_speech`, lấy từ thẻ `pos` của JMdict, kanji để trống) và chỉ mục tra chính xác. Cột `jlpt_level` có sẵn nhưng chưa có nguồn dữ liệu nên đang để trống. |
 | SavedItem | `bookmarks` | Mỗi tài khoản lưu một tham chiếu đến cue của tập hoặc mục từ. Có ràng buộc đảm bảo mỗi hàng chỉ có một loại tham chiếu. Bookmark từ có thể lưu nguồn trong `source_episode_id` và `source_cue_id` (cùng có hoặc cùng trống). Hai cột này không có khóa ngoại, nguồn được đối chiếu với bản xuất bản hiện hành khi đọc. |
 | WatchProgress | `checkpoints` | Một vị trí xem theo mili giây cho mỗi cặp tài khoản và tập. |
 

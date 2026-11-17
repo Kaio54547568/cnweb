@@ -6,18 +6,19 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { entryIdPattern } from './dictionary/dictionary';
 
-type Entry = { id: string; headword: string; readings: string[]; terms: string[]; glosses: unknown[] };
+type Entry = { id: string; headword: string; readings: string[]; terms: string[]; glosses: unknown[];
+  partsOfSpeech?: string[] };
 
 async function save(db: PrismaClient, entries: Entry[]) {
   const batch = JSON.stringify(entries);
   const ids = entries.map(({ id }) => id);
   await db.$transaction([
-    db.$executeRaw`INSERT INTO dictionary_entries (id, headword, readings, glosses)
-      SELECT id, headword, readings, glosses
+    db.$executeRaw`INSERT INTO dictionary_entries (id, headword, readings, glosses, parts_of_speech)
+      SELECT id, headword, readings, glosses, COALESCE("partsOfSpeech", ARRAY[]::text[])
       FROM jsonb_to_recordset(${batch}::jsonb)
-        AS x(id text, headword text, readings text[], glosses jsonb)
+        AS x(id text, headword text, readings text[], glosses jsonb, "partsOfSpeech" text[])
       ON CONFLICT (id) DO UPDATE SET headword = EXCLUDED.headword, readings = EXCLUDED.readings,
-        glosses = EXCLUDED.glosses`,
+        glosses = EXCLUDED.glosses, parts_of_speech = EXCLUDED.parts_of_speech`,
     db.dictionaryTerm.deleteMany({ where: { entryId: { in: ids } } }),
     db.$executeRaw`INSERT INTO dictionary_terms (term, entry_id)
       SELECT unnest(terms), id

@@ -30,7 +30,8 @@ def word(node):
         return None
     return {"id": "jmdict:" + number, "headword": (forms or readings)[0],
             "readings": readings, "terms": forms + readings,
-            "glosses": meanings(node.findall("sense/gloss"), XML_LANG)}
+            "glosses": meanings(node.findall("sense/gloss"), XML_LANG),
+            "partsOfSpeech": distinct(element.text for element in node.findall("sense/pos"))}
 
 
 def kanji(node):
@@ -41,7 +42,8 @@ def kanji(node):
                         if r.get("r_type") in {"ja_on", "ja_kun"})
     return {"id": f"kanji:{ord(literal):04x}", "headword": literal,
             "readings": readings, "terms": [literal],
-            "glosses": meanings(node.findall("reading_meaning/rmgroup/meaning"), "m_lang")}
+            "glosses": meanings(node.findall("reading_meaning/rmgroup/meaning"), "m_lang"),
+            "partsOfSpeech": []}
 
 
 def main():

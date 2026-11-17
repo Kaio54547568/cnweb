@@ -153,6 +153,20 @@ test('catalog and learning expose card metadata', async () => {
     assert.equal(items.find((item) => item.kind === 'word').source, null);
     assert.equal(items.find((item) => item.kind === 'cue').available, false);
 
+
+    // Dictionary entries carry parts of speech and an optional JLPT level.
+    const posId = 'jmdict:' + (8_000_000 + Math.floor(Math.random() * 99_999));
+    await db.dictionaryEntry.create({ data: { id: posId, headword: '勉強' + tag, readings: ['べんきょう'],
+      glosses: [], partsOfSpeech: ['noun (common) (futsuumeishi)'] } });
+    await db.dictionaryTerm.create({ data: { term: '勉強' + tag, entryId: posId } });
+    const looked = await (await request('/dictionary?q=' + encodeURIComponent('勉強' + tag))).json();
+    assert.deepEqual(looked.entries[0].partsOfSpeech, ['noun (common) (futsuumeishi)']);
+    assert.equal(looked.entries[0].jlptLevel, null);
+    await post({ entryId: posId });
+    const wordsAfter = (await read()).items.filter((item) => item.kind === 'word');
+    assert.deepEqual(wordsAfter.find((item) => item.entry.id === posId).entry.partsOfSpeech,
+      ['noun (common) (futsuumeishi)']);
+
   } catch (error) {
     error.message += '\n' + output.join('');
     throw error;

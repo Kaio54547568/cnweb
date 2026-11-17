@@ -11,7 +11,7 @@ import { RateLimit, RateLimitModule } from '../rate-limit';
 
 export const entryIdPattern = /^(?:jmdict:\d{1,12}|kanji:[a-f\d]{4,6})$/;
 export const dictionaryFields = {
-  id: true, headword: true, readings: true, glosses: true,
+  id: true, headword: true, readings: true, glosses: true, partsOfSpeech: true, jlptLevel: true,
   vietnamese: { select: { meaningVi: true, source: true } },
 } satisfies Prisma.DictionaryEntrySelect;
 

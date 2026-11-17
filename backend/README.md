@@ -83,7 +83,7 @@ npm run dictionary:import -- jmdict <đường-dẫn/JMdict_e.gz>
 npm run dictionary:import -- kanjidic <đường-dẫn/kanjidic2.xml.gz>
 ```
 
-Importer cập nhật theo ID gốc, nên có thể chạy lại sau lỗi và giữ tham chiếu trong sổ tay. Tra cứu chính xác theo cách viết hoặc cách đọc đã nhập. UI hiển thị nghĩa cùng mã ngôn ngữ. Bộ JMdict tiếng Anh dùng cho beta không cung cấp bản dịch Việt. Nguồn và điều kiện phân phối được ghi trong [giấy phép EDRDG](https://www.edrdg.org/edrdg/licence.html).
+Importer cập nhật theo ID gốc, nên có thể chạy lại sau lỗi và giữ tham chiếu trong sổ tay. Importer cũng ghi từ loại (`parts_of_speech`) từ thẻ `pos` của JMdict, nên cần chạy lại lệnh JMdict một lần sau migration `dictionary_pos` để từ cũ có từ loại. Tra cứu chính xác theo cách viết hoặc cách đọc đã nhập. UI hiển thị nghĩa cùng mã ngôn ngữ. Bộ JMdict tiếng Anh dùng cho beta không cung cấp bản dịch Việt. Nguồn và điều kiện phân phối được ghi trong [giấy phép EDRDG](https://www.edrdg.org/edrdg/licence.html).
 
 Để bổ sung nghĩa Việt đã duyệt, chuẩn bị CSV UTF-8 với header `entryId,meaningVi,source`, một dòng cho mỗi ID có sẵn trong từ điển. Có thể dùng dấu chấm phẩy để ngăn nhiều nghĩa trong một ô. Dùng dấu ngoặc kép CSV nếu ô có dấu phẩy hoặc xuống dòng. Sau khi chạy migration và build, dùng `npm run dictionary:import-vi -- <file.csv>`. Lệnh kiểm tra toàn bộ tệp trước khi ghi. Nhập lại JMdict/KANJIDIC2 không ghi đè nghĩa Việt.
 
