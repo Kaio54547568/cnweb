@@ -92,7 +92,7 @@ Trình độ và thể loại của tập thuộc series lấy từ series. Tậ
 | API | Cách dùng |
 | --- | --- |
 | `GET /editorial/episodes?page=1&q=...` | Tìm tập theo tiêu đề và trả `{ episodes, page, hasMore }`, 25 tập mỗi trang. Có cả tập chưa xuất bản. |
-| `POST /editorial/episodes` | Tạo tập từ `title`, `youtubeId` và phân nhóm nếu có. Tập mới mặc định `MEMBER`. |
+| `POST /editorial/episodes` | Tạo tập từ `title`, `youtubeId` và phân nhóm nếu có. Tập lẻ có thể kèm `level` (N5 đến N1) và `genre`; gửi hai field này cùng `seriesId` sẽ bị `400`. Phản hồi và danh sách biên tập có thêm `durationMs`, `level`, `genre`. Tập mới mặc định `MEMBER`. |
 | `GET/POST /editorial/channels`, `GET/POST /editorial/series`, `PATCH /editorial/series/:seriesId` | Tạo kênh/series và sửa `level`, `genre`, `channelId` của series. |
 | `PUT /editorial/episodes/:id/grouping`, `GET/POST /editorial/episodes/:id/speakers` | Gán phân nhóm tập, tạo và đọc danh sách người nói của tập. `grouping` nhận thêm `durationMs` (mili giây, `null` để xóa, bỏ qua để giữ nguyên) để CMS cập nhật thời lượng, và `level` (N5 đến N1), `genre` cho tập lẻ. Gửi `level` hoặc `genre` cùng `seriesId` sẽ bị `400`. |
 | `GET/PUT /editorial/episodes/:id/draft` | Đọc bản nháp hoặc gửi `{ expectedDraftId, format, content }`. Lần nhập đầu dùng `expectedDraftId: null`. SRT/VTT gửi chuỗi. JSON gửi object `{ cues }`. Tệp được đọc ở browser và gửi dưới dạng JSON qua BFF. |

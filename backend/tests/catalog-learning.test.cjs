@@ -201,6 +201,23 @@ test('catalog and learning expose card metadata', async () => {
     assert.equal(joined.level, null);
     assert.equal(joined.genre, null);
 
+    // Creating an episode accepts level and genre for standalone episodes only.
+    const create = (body) => request('/editorial/episodes', {
+      method: 'POST', body: JSON.stringify({ youtubeId: 'abcdefghijk', title: 'Created ' + tag, ...body }),
+      headers: { Authorization: bearer(editor.id), 'Content-Type': 'application/json' },
+    });
+    const created = await create({ level: 'N2', genre: genreName, durationMs: 60_000 });
+    assert.equal(created.status, 201);
+    const createdBody = await created.json();
+    assert.equal(createdBody.level, 'N2');
+    assert.equal(createdBody.genre, genreName);
+    assert.equal(createdBody.durationMs, 60_000);
+    assert.equal((await create({ level: 'N0' })).status, 400);
+    assert.equal((await create({ seriesId: series.id, genre: genreName })).status, 400);
+    const inherited = await (await create({ seriesId: series.id, episodeNumber: 20 })).json();
+    assert.equal(inherited.level, null);
+    assert.equal(inherited.genre, null);
+
     // Series detail lists readable episodes in order; unknown or empty series are 404.
     const seriesPage = await (await request('/series/' + series.slug)).json();
     assert.equal(seriesPage.title, series.title);

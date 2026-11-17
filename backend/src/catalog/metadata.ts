@@ -69,9 +69,14 @@ export async function episodeData(tx: Prisma.TransactionClient, body: unknown) {
     invalid('The episode channel must match its series');
   }
   if (!seriesId && input.episodeNumber !== null) invalid('Select a series before assigning an episode number');
+  const labels = (body ?? {}) as { level?: unknown; genre?: unknown };
+  if (seriesId && (labels.level != null || labels.genre != null)) {
+    invalid('Episodes in a series inherit its level and genre');
+  }
   return {
     title: input.title, youtubeId: input.youtubeId, episodeNumber: input.episodeNumber, durationMs: input.durationMs,
     seriesId, channelId: seriesId ? null : channelId,
+    level: seriesId ? null : catalogLevel(labels.level), genre: seriesId ? null : label(labels.genre, 80),
   };
 }
 

@@ -19,7 +19,8 @@ export class Editorial {
   async createEpisode(body: unknown, authorId: string, requestId: string) {
     const episode = await this.db.$transaction(async (tx) => tx.episode.create({
       data: await episodeData(tx, body),
-      select: { id: true, title: true, youtubeId: true, visibility: true, seriesId: true, episodeNumber: true, channelId: true },
+      select: { id: true, title: true, youtubeId: true, visibility: true, seriesId: true, episodeNumber: true, channelId: true,
+        durationMs: true, level: true, genre: true },
     })).catch(catalogConflict);
     this.logger.log({ service: 'api', operation: 'episode_created', episodeId: episode.id, authorId, requestId });
     return episode;
@@ -39,7 +40,8 @@ export class Editorial {
       orderBy: [{ title: 'asc' }, { id: 'asc' }],
       skip: paginated ? (pageNumber - 1) * pageSize : 0,
       take: paginated ? pageSize + 1 : 100,
-      select: { id: true, title: true, visibility: true, publishedId: true, seriesId: true, episodeNumber: true, channelId: true },
+      select: { id: true, title: true, visibility: true, publishedId: true, seriesId: true, episodeNumber: true, channelId: true,
+        durationMs: true, level: true, genre: true },
     });
     return paginated ? { episodes: rows.slice(0, pageSize), page: pageNumber, hasMore: rows.length > pageSize } : rows;
   }
