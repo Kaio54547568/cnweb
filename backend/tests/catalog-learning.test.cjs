@@ -229,6 +229,33 @@ test('catalog and learning expose card metadata', async () => {
     const emptySeries = await db.series.create({ data: { slug: 'empty-' + tag, title: 'Empty ' + tag } });
     assert.equal((await request('/series/' + emptySeries.slug)).status, 404);
 
+
+    // Cue grammar notes and levels go through the JSON draft, publication and episode view.
+    const cms = (path, method, body) => request('/editorial/episodes/' + createdBody.id + path, {
+      method, body: JSON.stringify(body),
+      headers: { Authorization: bearer(editor.id), 'Content-Type': 'application/json' },
+    });
+    const noteCue = { startMs: 0, endMs: 1000, text: '食べてもいい', translation: 'Ăn cũng được',
+      grammarNote: '〜てもいい: được phép', level: 'N4' };
+    assert.equal((await cms('/draft', 'PUT', { expectedDraftId: null, format: 'json',
+      content: { cues: [{ ...noteCue, level: 'N7' }] } })).status, 400);
+    assert.equal((await cms('/draft', 'PUT', { expectedDraftId: null, format: 'json',
+      content: { cues: [{ ...noteCue, grammarNote: 'x'.repeat(2001) }] } })).status, 400);
+    const draft = await (await cms('/draft', 'PUT', { expectedDraftId: null, format: 'json',
+      content: { cues: [noteCue, { startMs: 1000, endMs: 2000, text: 'はい', translation: 'Vâng' }] } })).json();
+    const draftCues = (await (await cms('/draft', 'GET')).json()).cues;
+    assert.equal(draftCues[0].grammarNote, noteCue.grammarNote);
+    assert.equal(draftCues[0].level, 'N4');
+    assert.equal('grammarNote' in draftCues[1], false);
+    assert.equal((await cms('/publish', 'POST', { draftId: draft.id, reviewed: true })).status, 200);
+    const viewed = await (await request('/episodes/' + createdBody.id, { headers: { Authorization: bearer(account.id) } })).json();
+    assert.equal(viewed.cues[0].grammarNote, noteCue.grammarNote);
+    assert.equal(viewed.cues[0].level, 'N4');
+    assert.equal((await post({ episodeId: createdBody.id, cueId: viewed.cues[0].id })).status, 200);
+    const noted = (await read()).items.find((item) => item.kind === 'cue' && item.cue?.id === viewed.cues[0].id);
+    assert.equal(noted.cue.grammarNote, noteCue.grammarNote);
+    assert.equal(noted.cue.level, 'N4');
+
   } catch (error) {
     error.message += '\n' + output.join('');
     throw error;

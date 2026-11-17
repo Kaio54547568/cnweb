@@ -112,7 +112,8 @@ export class Learning {
       where: { id: { in: episodeIds }, ...readableEpisodes(true) },
       select: { id: true, title: true, published: { select: { lines: {
         where: { cueId: { in: cueIds } },
-        select: { cueId: true, startMs: true, text: true, translationVi: true, tokens: true },
+        select: { cueId: true, startMs: true, text: true, translationVi: true, tokens: true,
+          grammarNote: true, level: true },
       } } } },
     });
     const current = new Map(episodes.map((episode) => [episode.id, episode]));
@@ -130,6 +131,7 @@ export class Learning {
       return { key: row.key, kind: 'cue', available: true, episodeId: episode.id,
         episodeTitle: episode.title,
         cue: { id: cue.cueId, text: cue.text, translation: cue.translationVi, startMs: cue.startMs,
+          ...(cue.grammarNote && { grammarNote: cue.grammarNote }), ...(cue.level && { level: cue.level }),
           ...tokensView(cue.tokens) } };
     });
     return { items, page, hasMore: rows.length > pageSize };

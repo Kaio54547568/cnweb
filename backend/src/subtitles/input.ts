@@ -9,12 +9,17 @@ export type SubtitleWord = {
   ruby: RubySegment[];
 };
 
+const jlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
+export type JlptLevelValue = typeof jlptLevels[number];
+
 export type Cue = {
   id: string;
   startMs: number;
   endMs: number;
   text: string;
   translation: string;
+  grammarNote?: string;
+  level?: JlptLevelValue;
   ruby?: RubySegment[];
   words?: SubtitleWord[];
   speakerId?: string;
@@ -89,11 +94,20 @@ function parseCue(value: unknown): IncomingCue {
       (cue.translation !== undefined && typeof cue.translation !== 'string')) {
     invalid('Cue text and translation must be strings');
   }
+  if (cue.grammarNote != null && (typeof cue.grammarNote !== 'string' || cue.grammarNote.trim().length > 2000)) {
+    invalid('Grammar note must be a string up to 2000 characters');
+  }
+  if (cue.level != null && !jlptLevels.includes(cue.level as JlptLevelValue)) {
+    invalid('Cue level must be N5 to N1');
+  }
+  const grammarNote = typeof cue.grammarNote === 'string' ? cue.grammarNote.trim() : '';
   return {
     id: typeof cue.id === 'string' ? cue.id.toLowerCase() : undefined,
     startMs: cue.startMs as number, endMs: cue.endMs as number,
     text: cue.text.trim(), translation: (cue.translation ?? '').trim(),
     speakerId: typeof cue.speakerId === 'string' ? cue.speakerId.toLowerCase() : undefined,
+    ...(grammarNote && { grammarNote }),
+    ...(cue.level != null && { level: cue.level as JlptLevelValue }),
   };
 }
 

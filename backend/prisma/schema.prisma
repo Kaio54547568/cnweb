@@ -172,6 +172,8 @@ model SubtitleLine {
   endMs         Int              @map("end_ms")
   text          String
   translationVi String           @map("translation_vi")
+  grammarNote   String?          @map("grammar_note")
+  level         JlptLevel?
   tokens        Json?
 
   @@id([revisionId, cueId])

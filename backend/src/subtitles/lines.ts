@@ -6,6 +6,7 @@ export const lineView = {
   orderBy: { ordinal: 'asc' },
   select: {
     cueId: true, startMs: true, endMs: true, text: true, translationVi: true, tokens: true,
+    grammarNote: true, level: true,
     speaker: { select: { id: true, name: true, color: true, avatarUrl: true } },
   },
 } satisfies Prisma.SubtitleRevision$linesArgs;
@@ -25,6 +26,8 @@ export function cueView(line: Line): Cue {
   return {
     id: line.cueId, startMs: line.startMs, endMs: line.endMs,
     text: line.text, translation: line.translationVi,
+    ...(line.grammarNote && { grammarNote: line.grammarNote }),
+    ...(line.level && { level: line.level }),
     ...tokensView(line.tokens),
     ...(line.speaker && { speakerId: line.speaker.id, speaker: line.speaker }),
   };
@@ -42,6 +45,7 @@ export async function writeLines(tx: Prisma.TransactionClient, episodeId: string
     data: cues.map((cue, ordinal) => ({
       revisionId, episodeId, cueId: cue.id, speakerId: cue.speakerId, ordinal,
       startMs: cue.startMs, endMs: cue.endMs, text: cue.text, translationVi: cue.translation,
+      grammarNote: cue.grammarNote ?? null, level: cue.level ?? null,
       ...(cue.words ? { tokens: { words: cue.words } } : cue.ruby ? { tokens: cue.ruby } : {}),
     })),
   });
