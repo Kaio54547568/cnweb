@@ -151,7 +151,7 @@ export class CatalogMetadata {
 
   async assignSeries(episodeId: string, value: unknown) {
     const body = value as { seriesId?: unknown; episodeNumber?: unknown; channelId?: unknown;
-      durationMs?: unknown } | null;
+      durationMs?: unknown; level?: unknown; genre?: unknown } | null;
     const seriesId = body?.seriesId || null;
     const number = body?.episodeNumber ?? null;
     if (seriesId !== null && (!isUuid(seriesId) || !await this.db.series.count({ where: { id: seriesId } }))) {
@@ -162,6 +162,12 @@ export class CatalogMetadata {
     const durationMs = body?.durationMs === undefined ? undefined : positiveInteger(body.durationMs, 86400000);
     const channelId = body?.channelId === undefined ? undefined : await this.channelId(body.channelId);
     if (seriesId && channelId) invalid('Episodes in a series inherit its channel');
+    if (seriesId && (body?.level != null || body?.genre != null)) {
+      invalid('Episodes in a series inherit its level and genre');
+    }
+    // Only standalone episodes carry their own labels; joining a series clears them.
+    const level = seriesId ? null : body?.level === undefined ? undefined : catalogLevel(body.level);
+    const genre = seriesId ? null : body?.genre === undefined ? undefined : label(body.genre, 80);
     try {
       return await this.db.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM episodes WHERE id = ${episodeId}::uuid FOR NO KEY UPDATE`;
@@ -172,10 +178,11 @@ export class CatalogMetadata {
         if (!episode) throw new NotFoundException();
         return tx.episode.update({
           where: { id: episodeId },
-          data: { seriesId, episodeNumber: number, durationMs,
+          data: { seriesId, episodeNumber: number, durationMs, level, genre,
             channelId: seriesId ? null : channelId === undefined
               ? episode.channelId ?? episode.series?.channelId ?? null : channelId },
-          select: { id: true, seriesId: true, episodeNumber: true, channelId: true, durationMs: true },
+          select: { id: true, seriesId: true, episodeNumber: true, channelId: true, durationMs: true,
+            level: true, genre: true },
         });
       });
     } catch (error) { catalogConflict(error); }

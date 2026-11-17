@@ -13,6 +13,15 @@ import { cueView, lineView } from '../subtitles/lines';
 import { isUuid } from '../subtitles/input';
 
 const pageSize = 20;
+const seriesEpisodeLimit = 200;
+const seriesOrder = [
+  { episodeNumber: { sort: 'asc', nulls: 'last' } }, { title: 'asc' }, { id: 'asc' },
+] satisfies Prisma.EpisodeOrderByWithRelationInput[];
+const seriesSelect = {
+  id: true, slug: true, title: true, description: true, language: true, level: true, genre: true,
+  channel: { select: { name: true } },
+  _count: { select: { episodes: { where: readableEpisodes(true) } } },
+} satisfies Prisma.SeriesSelect;
 
 @Injectable()
 class Catalog {
@@ -22,12 +31,9 @@ class Catalog {
     const rows = await this.db.series.findMany({
       where: { episodes: { some: readableEpisodes(true) } },
       orderBy: [{ title: 'asc' }, { slug: 'asc' }], take: 100,
-      select: { id: true, slug: true, title: true, description: true, language: true, level: true, genre: true,
-        channel: { select: { name: true } },
-        _count: { select: { episodes: { where: readableEpisodes(true) } } },
+      select: { ...seriesSelect,
         // The featured episode is the first readable one in series order.
-        episodes: { where: readableEpisodes(true), take: 1,
-          orderBy: [{ episodeNumber: { sort: 'asc', nulls: 'last' } }, { title: 'asc' }, { id: 'asc' }],
+        episodes: { where: readableEpisodes(true), take: 1, orderBy: seriesOrder,
           select: { youtubeId: true } } },
     });
     return rows.map(({ _count, episodes, ...series }) => ({
@@ -36,8 +42,23 @@ class Catalog {
     }));
   }
 
+  async seriesDetail(slug: string) {
+    const found = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 120
+      ? await this.db.series.findFirst({
+        where: { slug, episodes: { some: readableEpisodes(true) } },
+        select: { ...seriesSelect,
+          episodes: { where: readableEpisodes(true), take: seriesEpisodeLimit, orderBy: seriesOrder,
+            select: episodeCardSelect } },
+      }) : null;
+    if (!found) throw new NotFoundException();
+    const { _count, episodes, ...series } = found;
+    return { ...series, episodeCount: _count.episodes,
+      thumbnailUrl: episodes[0] ? youtubeThumbnail(episodes[0].youtubeId) : null,
+      episodes: episodes.map(episodeMeta) };
+  }
+
   async filters() {
-    const [series, standalone] = await Promise.all([
+    const [series, standalone, standaloneEpisodes] = await Promise.all([
       this.db.series.findMany({
         where: { episodes: { some: readableEpisodes(true) } },
         orderBy: { id: 'asc' },
@@ -47,16 +68,21 @@ class Catalog {
         where: { episodes: { some: { seriesId: null, ...readableEpisodes(true) } } },
         select: { id: true, name: true },
       }),
+      this.db.episode.findMany({
+        where: { seriesId: null, ...readableEpisodes(true), OR: [{ level: { not: null } }, { genre: { not: null } }] },
+        distinct: ['level', 'genre'], select: { level: true, genre: true },
+      }),
     ]);
     const genres = new Map<string, string>();
     const channels = new Map(standalone.map((channel) => [channel.id, channel]));
-    for (const item of series) {
+    for (const item of [...series, ...standaloneEpisodes]) {
       const genre = item.genre?.trim();
       if (genre && !genres.has(genre.toLowerCase())) genres.set(genre.toLowerCase(), genre);
-      if (item.channel) channels.set(item.channel.id, item.channel);
     }
+    for (const item of series) if (item.channel) channels.set(item.channel.id, item.channel);
     return {
-      levels: Object.values(JlptLevel).filter((level) => series.some((item) => item.level === level)),
+      levels: Object.values(JlptLevel).filter((level) =>
+        [...series, ...standaloneEpisodes].some((item) => item.level === level)),
       genres: [...genres.values()].sort((left, right) => left.localeCompare(right, 'vi')),
       channels: [...channels.values()].sort((left, right) => left.name.localeCompare(right.name, 'vi')),
     };
@@ -80,20 +106,27 @@ class Catalog {
     const rows = await this.db.episode.findMany({
       where: {
         publishedId: { not: null },
-        ...((series !== undefined || level !== undefined || genre !== undefined) && { series: { is: {
-          slug: typeof series === 'string' ? series : undefined,
-          level: typeof level === 'string' ? level : undefined,
-          genre: typeof genre === 'string' ? { equals: genre.trim(), mode: 'insensitive' } : undefined,
-        } } }),
-        ...(typeof channelId === 'string' && { AND: [{ OR: [
-          { seriesId: null, channelId },
-          { series: { is: { channelId } } },
-        ] }] }),
-        ...(term && { OR: [
-          { title: match }, { series: { is: { title: match } } },
-          { channel: { is: { name: match } } },
-          { series: { is: { channel: { is: { name: match } } } } },
-        ] }),
+        AND: [
+          ...(typeof series === 'string' ? [{ series: { is: { slug: series } } }] : []),
+          // Level and genre come from the series, or from the episode itself when it has no series.
+          ...(typeof level === 'string' ? [{ OR: [
+            { series: { is: { level } } }, { seriesId: null, level },
+          ] }] : []),
+          ...(typeof genre === 'string' ? [{ OR: [
+            { series: { is: { genre: { equals: genre.trim(), mode: Prisma.QueryMode.insensitive } } } },
+            { seriesId: null, genre: { equals: genre.trim(), mode: Prisma.QueryMode.insensitive } },
+          ] }] : []),
+          ...(typeof channelId === 'string' ? [{ OR: [
+            { seriesId: null, channelId },
+            { series: { is: { channelId } } },
+          ] }] : []),
+          ...(term ? [{ OR: [
+            { title: match }, { series: { is: { title: match } } },
+            { channel: { is: { name: match } } },
+            { series: { is: { channel: { is: { name: match } } } } },
+            { series: { is: { genre: match } } }, { genre: match },
+          ] }] : []),
+        ],
       },
       orderBy: typeof series === 'string'
         ? [{ episodeNumber: { sort: 'asc', nulls: 'last' } }, { title: 'asc' }, { id: 'asc' }]
@@ -157,6 +190,11 @@ class SeriesController {
   @Get()
   series() {
     return this.catalog.series();
+  }
+
+  @Get(':slug')
+  seriesDetail(@Param('slug') slug: string) {
+    return this.catalog.seriesDetail(slug);
   }
 }
 

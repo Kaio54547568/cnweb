@@ -167,6 +167,51 @@ test('catalog and learning expose card metadata', async () => {
     assert.deepEqual(wordsAfter.find((item) => item.entry.id === posId).entry.partsOfSpeech,
       ['noun (common) (futsuumeishi)']);
 
+
+    // Standalone episodes carry their own level and genre; series episodes inherit.
+    const genreName = 'Genre' + tag;
+    const labelled = await seedEpisode(db, { title: 'Labelled ' + tag });
+    const label = (episodeId, body) => request('/editorial/episodes/' + episodeId + '/grouping', {
+      method: 'PUT', body: JSON.stringify(body),
+      headers: { Authorization: bearer(editor.id), 'Content-Type': 'application/json' },
+    });
+    const labelled200 = await (await label(labelled.id, { level: 'N3', genre: genreName })).json();
+    assert.equal(labelled200.level, 'N3');
+    assert.equal(labelled200.genre, genreName);
+    assert.equal((await label(labelled.id, { level: 'N9' })).status, 400);
+    assert.equal((await label(labelled.id, { seriesId: series.id, level: 'N3' })).status, 400);
+
+    const byLevel = await (await request('/episodes?level=N3&q=' + tag)).json();
+    assert.deepEqual(byLevel.episodes.map((item) => item.title), ['Labelled ' + tag]);
+    assert.equal(byLevel.episodes[0].level, 'N3');
+    assert.equal(byLevel.episodes[0].genre, genreName);
+    const byGenre = await (await request('/episodes?genre=' + genreName.toLowerCase())).json();
+    assert.deepEqual(byGenre.episodes.map((item) => item.title), ['Labelled ' + tag]);
+    const byQuery = await (await request('/episodes?q=' + genreName)).json();
+    assert.deepEqual(byQuery.episodes.map((item) => item.title), ['Labelled ' + tag]);
+    const filters = await (await request('/episodes/filters')).json();
+    assert.ok(filters.levels.includes('N3'));
+    assert.ok(filters.genres.includes(genreName));
+    // Series level filter still finds series episodes.
+    const seriesLevel = await (await request('/episodes?level=N4&series=' + series.slug)).json();
+    assert.equal(seriesLevel.episodes.length, 2);
+
+    // Joining a series clears the standalone labels.
+    const joined = await (await label(labelled.id, { seriesId: series.id, episodeNumber: 9 })).json();
+    assert.equal(joined.level, null);
+    assert.equal(joined.genre, null);
+
+    // Series detail lists readable episodes in order; unknown or empty series are 404.
+    const seriesPage = await (await request('/series/' + series.slug)).json();
+    assert.equal(seriesPage.title, series.title);
+    assert.equal(seriesPage.episodeCount, 3);
+    assert.deepEqual(seriesPage.episodes.map((item) => item.episodeNumber), [1, 2, 9]);
+    assert.equal(seriesPage.episodes[0].thumbnailUrl, seriesPage.thumbnailUrl);
+    assert.equal((await request('/series/missing-' + tag)).status, 404);
+    assert.equal((await request('/series/Bad_Slug')).status, 404);
+    const emptySeries = await db.series.create({ data: { slug: 'empty-' + tag, title: 'Empty ' + tag } });
+    assert.equal((await request('/series/' + emptySeries.slug)).status, 404);
+
   } catch (error) {
     error.message += '\n' + output.join('');
     throw error;

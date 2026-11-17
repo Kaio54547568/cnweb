@@ -95,6 +95,8 @@ model Episode {
   channel            Channel? @relation(fields: [channelId], references: [id])
   episodeNumber      Int? @map("episode_number")
   durationMs         Int? @map("duration_ms")
+  level              String?
+  genre              String?
   visibility         EpisodeVisibility @default(MEMBER)
   draftId            String? @unique @map("draft_id") @db.Uuid
   publishedId        String? @unique @map("published_id") @db.Uuid

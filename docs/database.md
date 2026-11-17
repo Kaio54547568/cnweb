@@ -9,7 +9,7 @@ Schema nguồn nằm trong [Prisma schema](../backend/prisma/schema.prisma). Bac
 | User | `accounts` | ID nội bộ, liên kết Google, vai trò, trạng thái vô hiệu hóa và hồ sơ người học. Tên tự đặt và trình độ JLPT là tùy chọn, ngôn ngữ học mặc định `ja`. Auth.js giữ phiên, NestJS sở hữu tài khoản. |
 | Channel | `channels` | Tên kênh duy nhất, nguồn YouTube và ảnh tùy chọn. |
 | Series | `series` | Tên, slug duy nhất, mô tả, ngôn ngữ, trình độ, thể loại và kênh tùy chọn. |
-| Episode | `episodes` | YouTube ID, tiêu đề, series, số tập, thời lượng nếu biết, phạm vi xem và revision hiện hành. Số tập duy nhất trong một series. Tập lẻ có thể gắn trực tiếp với kênh. |
+| Episode | `episodes` | YouTube ID, tiêu đề, series, số tập, thời lượng nếu biết, phạm vi xem và revision hiện hành. Số tập duy nhất trong một series. Tập lẻ có thể gắn trực tiếp với kênh và có `level`, `genre` riêng; tập thuộc series dùng giá trị của series. |
 | Speaker | `speakers` | Tên, màu và avatar tùy chọn. Tên duy nhất trong một tập. |
 | SubtitleLine | `subtitle_lines` | Mỗi dòng là một cue trong một revision, có `start_ms`, `end_ms`, câu Nhật, `translation_vi` và `tokens` JSONB. Index `(episode_id, start_ms)` hỗ trợ truy vấn theo thời gian. |
 | DictionaryEntry | `dictionary_entries`, `dictionary_terms` | ID nguồn JMdict/KANJIDIC2, cách viết, cách đọc, nghĩa, từ loại (`parts_of_speech`, lấy từ thẻ `pos` của JMdict, kanji để trống) và chỉ mục tra chính xác. Cột `jlpt_level` có sẵn nhưng chưa có nguồn dữ liệu nên đang để trống. |

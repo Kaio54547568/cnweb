@@ -35,7 +35,7 @@ flowchart LR
 | Hạng mục | Hành vi hiện tại | Phần FE cần nối |
 | --- | --- | --- |
 | **Tài khoản** | Google OAuth qua Auth.js. Đăng nhập lần đầu tạo tài khoản `LEARNER`. Có hồ sơ, tên hiển thị, trình độ N5–N1, ngôn ngữ học `ja` và luồng xóa tài khoản. | Nút đăng nhập/đăng xuất, màn hình hồ sơ và xác nhận xóa. Dùng vai trò từ hồ sơ để hiện link CMS. NestJS kiểm tra quyền cho mỗi thao tác. |
-| **Kho nội dung** | Danh mục công khai chỉ gồm tập đã xuất bản. Tìm theo tên tập, series hoặc kênh. Lọc kết hợp theo series, trình độ, thể loại và kênh. | Giữ bộ lọc trong URL. Khi đổi bộ lọc, về trang 1. Hiển thị trạng thái rỗng và nhãn tập mẫu hoặc tập cần đăng nhập. |
+| **Kho nội dung** | Danh mục công khai chỉ gồm tập đã xuất bản. Tìm theo tên tập, series, kênh hoặc thể loại. Lọc kết hợp theo series, trình độ, thể loại và kênh. | Giữ bộ lọc trong URL. Khi đổi bộ lọc, về trang 1. Hiển thị trạng thái rỗng và nhãn tập mẫu hoặc tập cần đăng nhập. |
 | **Trình xem học tập** | Có video YouTube, transcript đồng bộ, bấm câu để tua, lặp câu, đổi tốc độ và ẩn/hiện bản dịch. | Dùng YouTube IFrame Player và đồng hồ của player để xác định câu đang phát. Hiển thị transcript kể cả khi YouTube không phát được. |
 | **Furigana và tra từ** | Worker SudachiPy tách từ, sinh furigana và lưu dạng từ điển. Tra JMdict/KANJIDIC2, ưu tiên nghĩa Việt đã duyệt, dùng nghĩa Anh có nhãn khi thiếu. | Render ruby, cho bấm cả từ và tra thủ công. Hiển thị cách đọc, nghĩa và kanji liên quan. Transcript cũ có thể thiếu dữ liệu tách từ. |
 | **Lưu câu, lưu từ và xem tiếp** | Có lưu/bỏ lưu tại chỗ, đọc trạng thái nút tim theo lô, Sổ tay có phân trang và lưu vị trí xem. | Hiện trạng thái theo tài khoản. Sau khi tải lại, đọc trạng thái từ API. Mục câu hết quyền xem hoặc bị bỏ vẫn xuất hiện với trạng thái không còn mở được và có thể xóa. |
@@ -62,11 +62,12 @@ Các đường dẫn dưới đây dùng tiền tố `/api/v1` trên cùng origi
 | `GET /identity/me` | Trả `{ id, role, displayName, jlptLevel, learningLanguage }`. `displayName` và `jlptLevel` có thể là `null`. |
 | `PATCH /identity/me` | Gửi `displayName`, `jlptLevel` hoặc cả hai. Tên tối đa 80 ký tự, trình độ từ N5 đến N1. Gửi `null` để xóa giá trị. `learningLanguage` hiện cố định là `ja`. |
 | `DELETE /identity/me` | Vô hiệu hóa tài khoản và xóa liên kết Google, thông tin hồ sơ có thể chỉnh, bookmark và tiến độ. Sau `204`, giao diện gọi luồng đăng xuất Auth.js và về danh mục. |
-| `GET /episodes?q=...&page=1&series=...&level=N4&genre=...&channelId=...` | Trả `{ episodes, page, hasMore }`, 20 tập mỗi trang. Các tiêu chí kết hợp theo AND. `series` dùng slug, `channelId` dùng UUID. Bỏ tham số của bộ lọc chưa chọn. Danh sách chỉ trả metadata. Mỗi tập gồm `id`, `title`, `visibility`, `episodeNumber`, `durationMs` (có thể `null`), `thumbnailUrl` (dựng từ YouTube ID), `seriesTitle`, `seriesSlug`, `channelName` và `level` (lấy từ series, có thể `null`). |
+| `GET /episodes?q=...&page=1&series=...&level=N4&genre=...&channelId=...` | Trả `{ episodes, page, hasMore }`, 20 tập mỗi trang. Các tiêu chí kết hợp theo AND. `series` dùng slug, `channelId` dùng UUID. Bỏ tham số của bộ lọc chưa chọn. Danh sách chỉ trả metadata. Mỗi tập gồm `id`, `title`, `visibility`, `episodeNumber`, `durationMs` (có thể `null`), `thumbnailUrl` (dựng từ YouTube ID), `seriesTitle`, `seriesSlug`, `channelName`, `level` và `genre` (lấy từ series, hoặc từ chính tập nếu là tập lẻ, có thể `null`). Lọc `level` và `genre` áp dụng cho cả tập thuộc series lẫn tập lẻ. |
 | `GET /episodes/filters` | Trả `{ levels, genres, channels }` với `channels` là danh sách `{ id, name }`. Các lựa chọn dựa trên tập đã xuất bản, độc lập với bộ lọc đang chọn. |
+| `GET /series/:slug` | Trả thông tin series như `/series` kèm `episodes`, tối đa 200 tập đã xuất bản theo `episodeNumber` với cùng metadata như danh sách tập. `404` khi slug sai hoặc series chưa có tập nào đã xuất bản. |
 | `GET /series` | Trả danh sách series có tập đã xuất bản. Dùng `slug` để lọc tập và `title` để hiển thị. Mỗi series có thêm `description`, `episodeCount` (số tập đã xuất bản) và `thumbnailUrl` (ảnh của tập đầu tiên theo `episodeNumber`, `null` nếu không có). |
 
-Trình độ và thể loại của tập lấy từ series. Tập thuộc series dùng kênh của series, còn tập lẻ dùng kênh được gán trực tiếp. Metadata có thể trống nếu biên tập viên chưa điền.
+Trình độ và thể loại của tập thuộc series lấy từ series. Tập lẻ dùng giá trị gán trực tiếp qua `PUT /editorial/episodes/:id/grouping` và giá trị này bị xóa khi tập được gán vào series. Tập thuộc series dùng kênh của series, còn tập lẻ dùng kênh được gán trực tiếp. Metadata có thể trống nếu biên tập viên chưa điền.
 
 ### Trình xem, từ điển và Sổ tay
 
@@ -93,7 +94,7 @@ Trình độ và thể loại của tập lấy từ series. Tập thuộc serie
 | `GET /editorial/episodes?page=1&q=...` | Tìm tập theo tiêu đề và trả `{ episodes, page, hasMore }`, 25 tập mỗi trang. Có cả tập chưa xuất bản. |
 | `POST /editorial/episodes` | Tạo tập từ `title`, `youtubeId` và phân nhóm nếu có. Tập mới mặc định `MEMBER`. |
 | `GET/POST /editorial/channels`, `GET/POST /editorial/series`, `PATCH /editorial/series/:seriesId` | Tạo kênh/series và sửa `level`, `genre`, `channelId` của series. |
-| `PUT /editorial/episodes/:id/grouping`, `GET/POST /editorial/episodes/:id/speakers` | Gán phân nhóm tập, tạo và đọc danh sách người nói của tập. `grouping` nhận thêm `durationMs` (mili giây, `null` để xóa, bỏ qua để giữ nguyên) để CMS cập nhật thời lượng. |
+| `PUT /editorial/episodes/:id/grouping`, `GET/POST /editorial/episodes/:id/speakers` | Gán phân nhóm tập, tạo và đọc danh sách người nói của tập. `grouping` nhận thêm `durationMs` (mili giây, `null` để xóa, bỏ qua để giữ nguyên) để CMS cập nhật thời lượng, và `level` (N5 đến N1), `genre` cho tập lẻ. Gửi `level` hoặc `genre` cùng `seriesId` sẽ bị `400`. |
 | `GET/PUT /editorial/episodes/:id/draft` | Đọc bản nháp hoặc gửi `{ expectedDraftId, format, content }`. Lần nhập đầu dùng `expectedDraftId: null`. SRT/VTT gửi chuỗi. JSON gửi object `{ cues }`. Tệp được đọc ở browser và gửi dưới dạng JSON qua BFF. |
 | `POST /editorial/episodes/:id/publish` | Gửi `{ draftId, reviewed: true }`. Tất cả câu cần có bản dịch. Có thể xuất bản khi NLP đang chờ hoặc lỗi. Hiện cảnh báo vì tập có thể thiếu furigana. |
 | `PUT /editorial/episodes/:id/visibility`, `DELETE /editorial/episodes/:id/publication` | Đổi `SAMPLE`/`MEMBER` hoặc gỡ xuất bản. Gỡ xuất bản vẫn giữ bản nháp. |

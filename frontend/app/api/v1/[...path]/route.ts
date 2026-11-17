@@ -6,6 +6,7 @@ const uuid = '[a-f\\d]{8}-(?:[a-f\\d]{4}-){3}[a-f\\d]{12}';
 const episode = new RegExp('^/episodes/' + uuid + '$', 'i');
 const seriesMetadata = new RegExp('^/editorial/series/' + uuid + '$', 'i');
 const editorial = new RegExp('^/editorial/episodes/' + uuid + '/(draft|publish|visibility|publication|grouping|speakers)$', 'i');
+const seriesDetail = /^\/series\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const checkpoint = new RegExp('^/learning/checkpoints/' + uuid + '$', 'i');
 const bookmark = new RegExp('^/learning/bookmarks/(?:cue:' + uuid + ':' + uuid
   + '|word:(?:jmdict:\\d{1,12}|kanji:[a-f\\d]{4,6}))$', 'i');
@@ -30,7 +31,8 @@ function allowed(path: string, method: string): boolean {
   if (action === 'grouping') return method === 'PUT';
   if (action === 'speakers') return method === 'GET' || method === 'POST';
   return method === 'GET' && (
-    ['/episodes', '/episodes/filters', '/series', '/dictionary', '/preview', '/preview/player.js'].includes(path) || episode.test(path)
+    ['/episodes', '/episodes/filters', '/series', '/dictionary', '/preview', '/preview/player.js'].includes(path) ||
+    episode.test(path) || seriesDetail.test(path)
   );
 }
 
@@ -83,7 +85,8 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
       if (!body) return problem(413, 'PAYLOAD_TOO_LARGE', 'Payload too large');
     }
   }
-  const publicRoute = ['/episodes', '/episodes/filters', '/series', '/preview', '/preview/player.js'].includes(pathname);
+  const publicRoute = ['/episodes', '/episodes/filters', '/series', '/preview', '/preview/player.js'].includes(pathname) ||
+    seriesDetail.test(pathname);
   const accountId = publicRoute ? undefined : (await auth())?.accountId;
   if (!accountId && (pathname.startsWith('/editorial/') || pathname.startsWith('/learning/') ||
       pathname === '/identity/me')) {
