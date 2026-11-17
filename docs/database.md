@@ -13,7 +13,7 @@ Schema nguồn nằm trong [Prisma schema](../backend/prisma/schema.prisma). Bac
 | Speaker | `speakers` | Tên, màu và avatar tùy chọn. Tên duy nhất trong một tập. |
 | SubtitleLine | `subtitle_lines` | Mỗi dòng là một cue trong một revision, có `start_ms`, `end_ms`, câu Nhật, `translation_vi` và `tokens` JSONB. Index `(episode_id, start_ms)` hỗ trợ truy vấn theo thời gian. |
 | DictionaryEntry | `dictionary_entries`, `dictionary_terms` | ID nguồn JMdict/KANJIDIC2, cách viết, cách đọc, nghĩa và chỉ mục tra chính xác. |
-| SavedItem | `bookmarks` | Mỗi tài khoản lưu một tham chiếu đến cue của tập hoặc mục từ. Có ràng buộc đảm bảo mỗi hàng chỉ có một loại tham chiếu. |
+| SavedItem | `bookmarks` | Mỗi tài khoản lưu một tham chiếu đến cue của tập hoặc mục từ. Có ràng buộc đảm bảo mỗi hàng chỉ có một loại tham chiếu. Bookmark từ có thể lưu nguồn trong `source_episode_id` và `source_cue_id` (cùng có hoặc cùng trống). Hai cột này không có khóa ngoại, nguồn được đối chiếu với bản xuất bản hiện hành khi đọc. |
 | WatchProgress | `checkpoints` | Một vị trí xem theo mili giây cho mỗi cặp tài khoản và tập. |
 
 `subtitle_revisions` giữ lịch sử nháp và các bản đã xuất bản, cùng trạng thái NLP. `subtitle_cues` giữ định danh ổn định của cue qua các revision. `smoke_results` phục vụ kiểm tra hạ tầng. `LineAnalysis`, `ReviewCard`, `Subscription` và `Contributor` sẽ được thêm cùng các tính năng tương ứng.

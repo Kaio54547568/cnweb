@@ -119,6 +119,40 @@ test('catalog and learning expose card metadata', async () => {
     const tooMany = Array.from({ length: 33 }, () => 'episodeId=' + randomUUID()).join('&');
     assert.equal((await request('/learning/checkpoints?' + tooMany, { headers: { Authorization: bearer(account.id) } })).status, 400);
     assert.equal((await request('/learning/checkpoints?episodeId=nope', { headers: { Authorization: bearer(account.id) } })).status, 400);
+
+    // Bookmarks: ruby on cues, word source, summary.
+    const ruby = [['今日', 'きょう'], ['は', null]];
+    const rubyEpisode = await seedEpisode(db, { title: 'Ruby ' + tag });
+    await db.subtitleLine.updateMany({ where: { episodeId: rubyEpisode.id }, data: { tokens: ruby } });
+    const rubyCue = (await db.subtitleLine.findFirst({ where: { episodeId: rubyEpisode.id } })).cueId;
+    const entryId = 'jmdict:' + (9_000_000 + Math.floor(Math.random() * 99_999));
+    await db.dictionaryEntry.create({ data: { id: entryId, headword: '今日', readings: ['きょう'], glosses: [] } });
+    const json = { Authorization: bearer(account.id), 'Content-Type': 'application/json' };
+    const post = (body) => request('/learning/bookmarks', {
+      method: 'POST', body: JSON.stringify(body), headers: { ...json, Authorization: bearer(account.id) },
+    });
+    assert.equal((await post({ episodeId: rubyEpisode.id, cueId: rubyCue })).status, 200);
+    assert.equal((await post({ entryId, sourceEpisodeId: rubyEpisode.id })).status, 400);
+    assert.equal((await post({ entryId, sourceEpisodeId: rubyEpisode.id, sourceCueId: randomUUID() })).status, 404);
+    assert.equal((await post({ entryId, sourceEpisodeId: rubyEpisode.id, sourceCueId: rubyCue })).status, 200);
+    assert.equal((await post({ episodeId: rubyEpisode.id, cueId: rubyCue, sourceCueId: rubyCue })).status, 400);
+
+    const read = () => request('/learning/bookmarks', { headers: { Authorization: bearer(account.id) } }).then((r) => r.json());
+    let items = (await read()).items;
+    const cueItem = items.find((item) => item.kind === 'cue');
+    assert.deepEqual(cueItem.cue.ruby, ruby);
+    assert.equal(cueItem.cue.id, rubyCue);
+    const wordItem = items.find((item) => item.kind === 'word');
+    assert.deepEqual(wordItem.source, { episodeId: rubyEpisode.id, episodeTitle: 'Ruby ' + tag, cueId: rubyCue, startMs: 0 });
+    const summary = await (await request('/learning/bookmarks/summary', { headers: { Authorization: bearer(account.id) } })).json();
+    assert.deepEqual(summary, { words: 1, cues: 1 });
+
+    // Unpublishing hides the source but keeps the word bookmark.
+    await db.episode.update({ where: { id: rubyEpisode.id }, data: { publishedId: null } });
+    items = (await read()).items;
+    assert.equal(items.find((item) => item.kind === 'word').source, null);
+    assert.equal(items.find((item) => item.kind === 'cue').available, false);
+
   } catch (error) {
     error.message += '\n' + output.join('');
     throw error;

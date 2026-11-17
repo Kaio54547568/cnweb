@@ -15,7 +15,7 @@ function allowed(path: string, method: string): boolean {
   if (seriesMetadata.test(path)) return method === 'PATCH';
   if (path === '/identity/me') return method === 'GET' || method === 'PATCH' || method === 'DELETE';
   if (path === '/learning/bookmarks') return method === 'GET' || method === 'POST';
-  if (path === '/learning/bookmarks/status') return method === 'GET';
+  if (path === '/learning/bookmarks/status' || path === '/learning/bookmarks/summary') return method === 'GET';
   if (path === '/learning/checkpoints') return method === 'GET';
   if (checkpoint.test(path)) return method === 'GET' || method === 'PUT';
   if (bookmark.test(path)) return method === 'DELETE';

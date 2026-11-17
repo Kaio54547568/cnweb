@@ -11,6 +11,7 @@ import { dictionaryEntry, dictionaryFields, entryIdPattern } from '../dictionary
 import { ApiProblem } from '../http';
 import { Identity, IdentityModule } from '../identity/identity';
 import { isUuid } from '../subtitles/input';
+import { tokensView } from '../subtitles/lines';
 
 const cueKey = (episodeId: string, cueId: string) => 'cue:' + episodeId + ':' + cueId;
 const wordKey = (entryId: string) => 'word:' + entryId;
@@ -49,12 +50,19 @@ function parseKey(key: string): string {
 }
 
 function parseBookmark(value: unknown) {
-  const body = value as { episodeId?: unknown; cueId?: unknown; entryId?: unknown } | null;
+  const body = value as { episodeId?: unknown; cueId?: unknown; entryId?: unknown;
+    sourceEpisodeId?: unknown; sourceCueId?: unknown } | null;
+  const hasSource = body?.sourceEpisodeId !== undefined || body?.sourceCueId !== undefined;
   if (typeof body?.entryId === 'string' && entryIdPattern.test(body.entryId) &&
       body.episodeId === undefined && body.cueId === undefined) {
-    return { key: wordKey(body.entryId), entryId: body.entryId };
+    if (!hasSource) return { key: wordKey(body.entryId), entryId: body.entryId };
+    if (isUuid(body.sourceEpisodeId) && isUuid(body.sourceCueId)) {
+      return { key: wordKey(body.entryId), entryId: body.entryId,
+        sourceEpisodeId: body.sourceEpisodeId.toLowerCase(), sourceCueId: body.sourceCueId.toLowerCase() };
+    }
+    throw new ApiProblem(400, 'INVALID_BOOKMARK', 'Supply both a source episode and a source cue');
   }
-  if (isUuid(body?.episodeId) && isUuid(body.cueId) && body.entryId === undefined) {
+  if (isUuid(body?.episodeId) && isUuid(body.cueId) && body.entryId === undefined && !hasSource) {
     const episodeId = body.episodeId.toLowerCase();
     const cueId = body.cueId.toLowerCase();
     return { key: cueKey(episodeId, cueId), episodeId, cueId };
@@ -74,6 +82,14 @@ export class Learning {
     return { keys: rows.map(({ key }) => key) };
   }
 
+  async summary(accountId: string) {
+    const [words, cues] = await Promise.all([
+      this.db.bookmark.count({ where: { accountId, entryId: { not: null } } }),
+      this.db.bookmark.count({ where: { accountId, cueId: { not: null } } }),
+    ]);
+    return { words, cues };
+  }
+
   async bookmarks(accountId: string, requestedPage: unknown) {
     if (requestedPage !== undefined &&
         (typeof requestedPage !== 'string' || !/^[1-9]\d{0,3}$/.test(requestedPage))) {
@@ -85,25 +101,36 @@ export class Learning {
       orderBy: [{ createdAt: 'desc' }, { key: 'asc' }],
       skip: (page - 1) * pageSize,
       take: pageSize + 1,
-      select: { key: true, episodeId: true, cueId: true, entry: { select: dictionaryFields } },
+      select: { key: true, episodeId: true, cueId: true, sourceEpisodeId: true, sourceCueId: true,
+        entry: { select: dictionaryFields } },
     });
-    const episodeIds = [...new Set(rows.flatMap((row) => row.episodeId ? [row.episodeId] : []))];
-    const cueIds = [...new Set(rows.flatMap((row) => row.cueId ? [row.cueId] : []))];
+    const episodeIds = [...new Set(rows.flatMap((row) => [row.episodeId, row.sourceEpisodeId]
+      .filter((id): id is string => id !== null)))];
+    const cueIds = [...new Set(rows.flatMap((row) => [row.cueId, row.sourceCueId]
+      .filter((id): id is string => id !== null)))];
     const episodes = await this.db.episode.findMany({
       where: { id: { in: episodeIds }, ...readableEpisodes(true) },
       select: { id: true, title: true, published: { select: { lines: {
         where: { cueId: { in: cueIds } },
-        select: { cueId: true, startMs: true, text: true, translationVi: true },
+        select: { cueId: true, startMs: true, text: true, translationVi: true, tokens: true },
       } } } },
     });
     const current = new Map(episodes.map((episode) => [episode.id, episode]));
     const items = rows.slice(0, pageSize).map((row) => {
-      if (row.entry) return { key: row.key, kind: 'word', available: true, entry: dictionaryEntry(row.entry) };
+      if (row.entry) {
+        const origin = row.sourceEpisodeId ? current.get(row.sourceEpisodeId) : undefined;
+        const line = origin?.published?.lines.find((item) => item.cueId === row.sourceCueId);
+        return { key: row.key, kind: 'word', available: true, entry: dictionaryEntry(row.entry),
+          source: origin && line ? { episodeId: origin.id, episodeTitle: origin.title,
+            cueId: line.cueId, startMs: line.startMs } : null };
+      }
       const episode = row.episodeId ? current.get(row.episodeId) : undefined;
       const cue = episode?.published?.lines.find((item) => item.cueId === row.cueId);
       if (!episode || !cue) return { key: row.key, kind: 'cue', available: false };
       return { key: row.key, kind: 'cue', available: true, episodeId: episode.id,
-        episodeTitle: episode.title, cue: { text: cue.text, translation: cue.translationVi, startMs: cue.startMs } };
+        episodeTitle: episode.title,
+        cue: { id: cue.cueId, text: cue.text, translation: cue.translationVi, startMs: cue.startMs,
+          ...tokensView(cue.tokens) } };
     });
     return { items, page, hasMore: rows.length > pageSize };
   }
@@ -117,8 +144,12 @@ export class Learning {
           id: bookmark.episodeId, ...readableEpisodes(true),
           published: { is: { lines: { some: { cueId: bookmark.cueId } } } },
         } })) throw new NotFoundException();
-      } else if (!await tx.dictionaryEntry.count({ where: { id: bookmark.entryId } })) {
-        throw new NotFoundException();
+      } else {
+        if (!await tx.dictionaryEntry.count({ where: { id: bookmark.entryId } })) throw new NotFoundException();
+        if (bookmark.sourceEpisodeId && !await tx.episode.count({ where: {
+          id: bookmark.sourceEpisodeId, ...readableEpisodes(true),
+          published: { is: { lines: { some: { cueId: bookmark.sourceCueId } } } },
+        } })) throw new NotFoundException();
       }
       await tx.bookmark.createMany({ data: { ...bookmark, accountId }, skipDuplicates: true });
       return { key: bookmark.key };
@@ -189,6 +220,12 @@ class LearningController {
   @Header('Cache-Control', 'private, no-store')
   async bookmarks(@Headers('authorization') auth: string | undefined, @Query('page') page: unknown) {
     return this.learning.bookmarks((await this.identity.requireActor(auth)).id, page);
+  }
+
+  @Get('bookmarks/summary')
+  @Header('Cache-Control', 'private, no-store')
+  async summary(@Headers('authorization') auth: string | undefined) {
+    return this.learning.summary((await this.identity.requireActor(auth)).id);
   }
 
   @Get('bookmarks/status')

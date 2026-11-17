@@ -220,6 +220,8 @@ model Bookmark {
   cue       SubtitleCue?     @relation(fields: [episodeId, cueId], references: [episodeId, id], onDelete: Restrict, onUpdate: NoAction)
   entryId   String?          @map("entry_id")
   entry     DictionaryEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  sourceEpisodeId String?    @map("source_episode_id") @db.Uuid
+  sourceCueId     String?    @map("source_cue_id") @db.Uuid
   createdAt DateTime         @default(now()) @map("created_at")
 
   @@id([accountId, key])

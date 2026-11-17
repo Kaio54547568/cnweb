@@ -12,15 +12,20 @@ export const lineView = {
 
 type Line = Prisma.SubtitleLineGetPayload<{ select: typeof lineView.select }>;
 
-export function cueView(line: Line): Cue {
-  const stored = line.tokens;
+export function tokensView(stored: Prisma.JsonValue | null): { ruby?: RubySegment[]; words?: SubtitleWord[] } {
   const words = stored && typeof stored === 'object' && !Array.isArray(stored) && Array.isArray(stored.words)
     ? stored.words as SubtitleWord[] : undefined;
   return {
-    id: line.cueId, startMs: line.startMs, endMs: line.endMs,
-    text: line.text, translation: line.translationVi,
     ...(Array.isArray(stored) && { ruby: stored as RubySegment[] }),
     ...(words && { words, ruby: words.flatMap((word) => word.ruby) }),
+  };
+}
+
+export function cueView(line: Line): Cue {
+  return {
+    id: line.cueId, startMs: line.startMs, endMs: line.endMs,
+    text: line.text, translation: line.translationVi,
+    ...tokensView(line.tokens),
     ...(line.speaker && { speakerId: line.speaker.id, speaker: line.speaker }),
   };
 }
