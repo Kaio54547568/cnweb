@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "description": "Website học ngoại ngữ qua video",
+  "packageManager": "pnpm@12.18.0",
   "engines": {
     "node": ">=22"
   },

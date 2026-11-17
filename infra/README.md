@@ -2,9 +2,8 @@
 
 Hạ tầng cho môi trường dev (và sau này là file triển khai staging/production).
 
-- `docker-compose.yml`: PostgreSQL 16, Redis 7, Meilisearch.
+- `docker-compose.yml`: PostgreSQL 18 (cổng 5433) và Redis 7 (cổng 6380). Meilisearch chưa cần vì MVP tìm kiếm bằng PostgreSQL.
 
 ```bash
-cp .env.example .env
-docker compose -f infra/docker-compose.yml --env-file .env up -d
+docker compose -f infra/docker-compose.yml up -d --wait
 ```

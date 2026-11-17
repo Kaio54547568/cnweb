@@ -13,22 +13,22 @@ Giai đoạn hiện tại: **MVP (Giai đoạn 1)**. Không làm tính năng Gia
 
 ```
 apps/
-  web/         React + Vite + TypeScript + Tailwind v4 (từ Figma, dữ liệu giả; dự kiến chuyển Next.js) — trang người học
-  cms/         Trang quản trị nhập video, tải/sửa phụ đề, duyệt bản dịch
-  api/         NestJS REST + OpenAPI, Prisma + PostgreSQL — API duy nhất cho mọi client
-  worker/      BullMQ worker nền: tách từ, furigana, dịch nháp bằng AI
+  api/         NestJS REST (OpenAPI) + Prisma/PostgreSQL + worker BullMQ/SudachiPy (nlp/) — API duy nhất cho mọi client
+  web/         Next.js + Auth.js + BFF, Tailwind v4 — trang người học và CMS (/editorial); đang port giao diện từ Figma
   extension/   Extension trình duyệt (WXT/Plasmo) — Giai đoạn 3, chưa làm
 packages/
-  shared/      Kiểu dữ liệu, schema (zod), hằng số dùng chung giữa các app
-  ui/          Component UI dùng chung (web, cms, extension)
-  config/      tsconfig, eslint, prettier cơ sở
-infra/         docker-compose (PostgreSQL, Redis, Meilisearch), file triển khai
+  shared/      Kiểu dữ liệu, schema (zod), hằng số dùng chung giữa các app (chưa có nội dung)
+  ui/          Component UI dùng chung (chưa có nội dung)
+  config/      tsconfig, eslint, prettier cơ sở (chưa có nội dung)
+infra/         docker-compose (PostgreSQL, Redis), file triển khai
 docs/          product/ (yêu cầu), architecture/, adr/ (quyết định kiến trúc), guides/
 scripts/       Script tiện ích chạy từ root
 prototypes/    Mã thử nghiệm cũ, chỉ để tham khảo — KHÔNG phát triển thêm
 ```
 
-`prototypes/transcript-tool` là bản thử nghiệm Python (FastAPI + SudachiPy). Có thể đọc để lấy ý tưởng cho `apps/worker` (chia cue, furigana, prompt dịch), nhưng không import trực tiếp.
+API và worker là hai tiến trình của cùng codebase `apps/api` (`start:api`, `start:worker`). Trình duyệt chỉ gọi `apps/web` (BFF `/api/v1/*`), BFF ký xác nhận ngắn hạn rồi chuyển tới NestJS. Chi tiết: [docs/guides/ban-giao-backend-frontend-mvp.md](docs/guides/ban-giao-backend-frontend-mvp.md).
+
+`prototypes/transcript-tool` là bản thử nghiệm Python (FastAPI + SudachiPy). Có thể đọc để lấy ý tưởng nhưng không import trực tiếp.
 
 ## Lệnh thường dùng (chạy ở root)
 
@@ -38,7 +38,7 @@ pnpm dev                # chạy các app có script dev
 pnpm lint               # lint mọi package
 pnpm test               # test mọi package
 pnpm build              # build mọi package
-docker compose -f infra/docker-compose.yml up -d   # PostgreSQL, Redis, Meilisearch
+docker compose -f infra/docker-compose.yml up -d --wait   # PostgreSQL, Redis
 ```
 
 Chạy riêng một app: `pnpm --filter @cnweb/web dev`. Tên package có dạng `@cnweb/<thư-mục>`.
@@ -46,7 +46,7 @@ Chạy riêng một app: `pnpm --filter @cnweb/web dev`. Tên package có dạng
 ## Quy ước
 
 - Ngôn ngữ: TypeScript, `strict`. Package manager: **pnpm** (không dùng npm/yarn, không commit `package-lock.json`).
-- Mọi client chỉ nói chuyện với `apps/api`; không truy cập DB trực tiếp từ web/cms.
+- Mọi client chỉ nói chuyện với `apps/api` (qua BFF của `apps/web`); không truy cập DB trực tiếp từ web.
 - Kiểu dữ liệu dùng chung đặt ở `packages/shared`, không copy giữa các app.
 - Video không lưu trên server: chỉ phát qua YouTube IFrame Player. Không tải lại video.
 - AI chạy một lần khi nhập nội dung rồi cache kết quả; không gọi AI theo lượt xem.

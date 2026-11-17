@@ -1,16 +1,17 @@
 # Kiến trúc
 
 ```
- web (Next.js) ─┐
- cms            ├──► api (NestJS) ──► PostgreSQL
- extension      ┘        │  ├──────► Meilisearch
-                         │  └──────► Redis ◄── worker (BullMQ)
-                         │                       │
-                         └─ YouTube (chỉ nhúng)  └─► NLP + LLM API
+ trình duyệt ──► web (Next.js: UI, CMS /editorial, Auth.js, BFF)
+                    │  xác nhận ngắn hạn
+                    ▼
+                api (NestJS REST) ──► PostgreSQL (Prisma)
+                    │                      ▲
+                    └──► Redis ◄── worker (BullMQ + SudachiPy)
+ trình duyệt ──► YouTube IFrame (chỉ nhúng, không lưu video)
 ```
 
-- Một API, một cơ sở dữ liệu; mọi client gọi chung API.
-- Worker xử lý phụ đề nền: tách từ, furigana, dịch nháp.
-- Video không qua server của dự án.
+- Một API, một cơ sở dữ liệu; mọi client gọi qua BFF của `apps/web`.
+- API và worker là hai tiến trình của cùng codebase `apps/api`.
+- Worker xử lý phụ đề nền (furigana trước, AI dịch bật sau).
 
-Thêm sơ đồ chi tiết (luồng nhập phụ đề, luồng đồng bộ trình phát) vào thư mục này khi thiết kế xong.
+Tài liệu chi tiết: [backend-architecture.md](backend-architecture.md), [database.md](database.md).

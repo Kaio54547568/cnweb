@@ -18,3 +18,4 @@ Mẫu:
 Danh sách:
 
 - [0001 — Monorepo pnpm workspace](0001-monorepo-pnpm-workspace.md)
+- [0002 — Hợp nhất API NestJS và web Next.js vào monorepo](0002-hop-nhat-api-web-vao-monorepo.md)

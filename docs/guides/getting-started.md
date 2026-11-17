@@ -4,26 +4,23 @@
 
 - Node.js ≥ 22
 - pnpm (`corepack enable` hoặc `npm i -g pnpm`)
-- Docker (cho PostgreSQL, Redis, Meilisearch)
+- Docker (cho PostgreSQL, Redis)
 
 ## Cài đặt
 
 ```bash
 pnpm install
-cp .env.example .env
-docker compose -f infra/docker-compose.yml --env-file .env up -d
+docker compose -f infra/docker-compose.yml up -d --wait
 ```
 
-## Khởi tạo một app mới
+Sau đó:
 
-Các app trong `apps/` đang trống. Khi khởi tạo một app:
+1. [apps/api](../../apps/api/README.md#chạy-cục-bộ): tạo `.env`, chạy migration, khởi động API và worker.
+2. [apps/web](../../apps/web/README.md#chạy-cục-bộ): cấu hình Google OAuth, chạy `pnpm --filter @cnweb/web dev`.
 
-1. Tạo bằng công cụ chính thức ngay trong thư mục `apps/<tên>` (ví dụ `create-next-app`, `nest new`).
-2. Đặt `name` trong `package.json` là `@cnweb/<tên>`; đảm bảo có script `dev`, `build`, `lint`, `test` (root chạy bằng `pnpm -r --if-present`).
-3. Xóa `package-lock.json`/`yarn.lock` nếu công cụ tạo ra; dùng `pnpm install` ở root.
-4. Thêm `.env.example` cho biến của app; cập nhật README của app.
-5. Dùng `extends` từ `packages/config` khi package này đã có nội dung.
+## Thêm package mới
 
-## Gợi ý thứ tự khởi tạo
-
-`packages/shared` → `apps/api` (+ Prisma schema, migration đầu) → `apps/web` (trình xem) → `apps/worker` → `apps/cms`.
+1. Đặt `name` trong `package.json` là `@cnweb/<tên>`; có script `dev`, `build`, `lint`, `test` nếu cần (root chạy bằng `pnpm -r --if-present`).
+2. Không tạo `package-lock.json`/`yarn.lock`; dùng `pnpm install` ở root.
+3. Thêm `.env.example` cho biến của app và cập nhật README của app.
+4. Gói có script cài đặt (như Prisma) phải được cho phép trong `allowBuilds` của `pnpm-workspace.yaml`.

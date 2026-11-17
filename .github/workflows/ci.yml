@@ -1,26 +1,79 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
+    name: Build, migrate and smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://cnweb:cnweb_ci@127.0.0.1:5432/cnweb_ci?connect_timeout=3&socket_timeout=3
+      REDIS_URL: redis://127.0.0.1:6379/0
+      NEXT_TELEMETRY_DISABLED: '1'
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: cnweb_ci
+          POSTGRES_USER: cnweb
+          POSTGRES_PASSWORD: cnweb_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cnweb -d cnweb_ci"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 22
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      # Các script dưới chỉ chạy ở package nào có định nghĩa (--if-present).
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build NestJS
+        run: pnpm --filter @cnweb/api build
+
+      - name: Verify PostgreSQL migrations
+        working-directory: apps/api
+        run: |
+          pnpm exec prisma validate
+          pnpm run db:migrate:deploy
+          pnpm run db:migrate:status
+          pnpm exec prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Smoke test API and worker
+        run: pnpm --filter @cnweb/api run test:smoke
+
+      - name: Build Next.js
+        run: pnpm --filter @cnweb/web build
