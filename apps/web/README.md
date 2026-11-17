@@ -2,7 +2,12 @@
 
 Web chạy danh mục, đăng nhập Google qua Auth.js và trang biên tập. [Backend NestJS](../api/README.md) sở hữu tài khoản, vai trò và transcript.
 
-Giao diện đang được port dần từ bản thiết kế Figma (Tailwind CSS v4, design tokens ở `app/globals.css`, khung chung ở `components/site-shell.tsx`). Đã port: trang **Kho nội dung** (`app/page.tsx`). Các trang `/account`, `/learning`, `/editorial` vẫn là giao diện tham chiếu chưa thiết kế lại. Bản Figma gốc (Vite + dữ liệu giả) còn trong lịch sử git, commit `ac9bd6c`: `git show ac9bd6c:apps/web/src/components/MVPScreens.tsx`.
+Hai lớp giao diện cùng tồn tại:
+
+- **Giao diện Figma** (`figma-ui/`, route `/` và `/wireframes`): đủ các màn hình Trang chủ, Kho nội dung, Xem tập, Đăng nhập, Sổ tay và design system, đang dùng dữ liệu giả (`figma-ui/data/mockData.ts`). Được nạp bằng `components/figma-app.tsx` (client-only). Việc cần làm tiếp: thay dữ liệu giả bằng gọi API từng màn hình.
+- **Trang nối API thật** (`app/(legacy)/`: `/catalog`, `/account`, `/learning`, `/editorial`): giao diện tham chiếu của backend, đã có đăng nhập Google, phân quyền và CMS. `/catalog` đã dùng Tailwind theo token Figma.
+
+Design tokens ở `app/globals.css`. Hướng đi: chuyển dần từng màn hình trong `figma-ui/` sang route Next.js gọi API, rồi xóa trang `(legacy)` tương ứng.
 
 ## Chạy cục bộ
 

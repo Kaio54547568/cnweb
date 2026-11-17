@@ -2,7 +2,7 @@ import { BookOpen, Library, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const NAV = [
-  { href: '/', label: 'Kho nội dung', icon: Library },
+  { href: '/catalog', label: 'Kho nội dung (API)', icon: Library },
   { href: '/learning', label: 'Sổ tay', icon: BookOpen },
   { href: '/account', label: 'Tài khoản', icon: UserRound },
 ];

@@ -36,7 +36,7 @@ export default async function Home({ searchParams }: {
   const pageUrl = (number: number) => {
     const next = new URLSearchParams(params);
     next.set('page', String(number));
-    return '/?' + next;
+    return '/catalog?' + next;
   };
   const session = await auth();
   const accountId = session?.accountId;
@@ -76,15 +76,15 @@ export default async function Home({ searchParams }: {
           {isMember && <a className={linkBtn} href="/learning">Sổ tay và Xem tiếp</a>}
           {isEditor && <a className={linkBtn} href="/editorial">Biên tập</a>}
           {session ? (
-            <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }); }}>
+            <form action={async () => { 'use server'; await signOut({ redirectTo: '/catalog' }); }}>
               <button className={linkBtn + ' cursor-pointer'}>Đăng xuất</button>
             </form>
           ) : (
             <form action={async () => {
               'use server';
               const blocked = await checkLoginRate(await headers());
-              if (blocked) redirect('/?login=' + (blocked.status === 429 ? 'limit' : 'unavailable'));
-              await signIn('google', { redirectTo: '/' });
+              if (blocked) redirect('/catalog?login=' + (blocked.status === 429 ? 'limit' : 'unavailable'));
+              await signIn('google', { redirectTo: '/catalog' });
             }}>
               <button className="inline-flex h-9 cursor-pointer items-center rounded-lg bg-brand px-3 text-sm font-medium text-white transition-colors hover:bg-brand-hover">
                 Đăng nhập bằng Google
@@ -98,7 +98,7 @@ export default async function Home({ searchParams }: {
       {login === 'limit' && <p role="status" className={notice}>Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau.</p>}
       {login === 'unavailable' && <p role="status" className={notice}>Đăng nhập tạm thời gián đoạn.</p>}
 
-      <form action="/" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <form action="/catalog" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <label className="flex flex-col gap-1 text-xs text-muted">Series
           <select name="series" defaultValue={selectedSeries} className={field}>
             <option value="">Tất cả</option>
@@ -134,7 +134,7 @@ export default async function Home({ searchParams }: {
           <button className="h-9 cursor-pointer rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-brand-hover">
             Tìm
           </button>
-          {hasFilter && <a className={linkBtn} href="/">Xóa bộ lọc</a>}
+          {hasFilter && <a className={linkBtn} href="/catalog">Xóa bộ lọc</a>}
         </div>
       </form>
 

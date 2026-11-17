@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Library({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const accountId = (await auth())?.accountId;
-  if (!accountId) redirect('/');
+  if (!accountId) redirect('/catalog');
   const requested = (await searchParams).page;
   const page = requested && /^[1-9]\d{0,3}$/.test(requested) ? Number(requested) : 1;
   const [bookmarks, checkpoints] = await Promise.all([
@@ -34,7 +34,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="flex flex-col gap-4">
-      <p><a href="/">Về danh mục</a></p>
+      <p><a href="/catalog">Về danh mục</a></p>
       <h1>Sổ tay</h1>
       {!saved ? <p>Chưa tải được sổ tay.</p> : !saved.items.length ? <p>Chưa có mục đã lưu.</p> : (
         <ul>{saved.items.map((item) => <li key={item.key} style={{ marginBottom: '1rem' }}>
@@ -57,7 +57,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <form action={async () => {
             'use server';
             const actor = (await auth())?.accountId;
-            if (!actor) redirect('/');
+            if (!actor) redirect('/catalog');
             const removed = await backendFetch('/learning/bookmarks/' + encodeURIComponent(item.key), {
               accountId: actor, method: 'DELETE',
             }).catch(() => null);

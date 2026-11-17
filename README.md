@@ -12,7 +12,7 @@ Website cho người Việt học tiếng Nhật qua video YouTube: phụ đề 
 | Thư mục | Vai trò |
 | --- | --- |
 | [apps/api](apps/api/README.md) | NestJS REST API, PostgreSQL/Prisma và worker BullMQ + SudachiPy (API và worker cùng codebase) |
-| [apps/web](apps/web/README.md) | Next.js: danh mục, Auth.js, BFF, tài khoản, Sổ tay và CMS (`/editorial`); giao diện đang port từ Figma |
+| [apps/web](apps/web/README.md) | Next.js: giao diện Figma ở `/` (dữ liệu giả, đang nối API) + trang nối API thật (`/catalog`, `/account`, `/learning`, `/editorial`), Auth.js, BFF |
 | [apps/extension](apps/extension/README.md) | Extension trình duyệt (giai đoạn 3, chưa làm) |
 | `packages/` | `shared`, `ui`, `config` dùng chung (chưa có nội dung) |
 | [infra](infra/README.md) | docker-compose cho PostgreSQL và Redis |

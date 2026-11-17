@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { SiteShell } from '@/components/site-shell';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,7 +18,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <SiteShell>{children}</SiteShell>
+        {children}
       </body>
     </html>
   );
