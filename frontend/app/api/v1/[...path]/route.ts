@@ -92,7 +92,7 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
 
   // Forward query strings only on routes that accept them.
   const query = method === 'GET' &&
-    ['/episodes', '/dictionary', '/learning/bookmarks', '/learning/bookmarks/status', '/editorial/episodes'].includes(pathname)
+    ['/episodes', '/dictionary', '/learning/bookmarks', '/learning/bookmarks/status', '/learning/checkpoints', '/editorial/episodes'].includes(pathname)
     ? new URL(request.url).search : '';
   try {
     const guestKey = pathname === '/dictionary' && !accountId ? clientKey(request.headers) : undefined;

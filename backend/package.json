@@ -8,6 +8,7 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.json",
     "test:smoke": "node --test tests/platform-smoke.test.cjs",
+    "test:api": "node --test tests/catalog-learning.test.cjs",
     "start:api": "node dist/api.js",
     "start:worker": "node dist/worker.js",
     "db:migrate:dev": "prisma migrate dev",

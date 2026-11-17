@@ -70,6 +70,10 @@ jobs:
         working-directory: backend
         run: npm run test:smoke
 
+      - name: Test catalog and learning API
+        working-directory: backend
+        run: npm run test:api
+
       - name: Build Next.js
         working-directory: frontend
         run: |

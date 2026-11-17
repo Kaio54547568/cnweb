@@ -8,6 +8,7 @@ import { readableEpisodes } from './access';
 import { Database, DatabaseModule } from '../database';
 import { ApiProblem } from '../http';
 import { Identity, IdentityModule } from '../identity/identity';
+import { episodeCardSelect, episodeMeta, youtubeThumbnail } from './views';
 import { cueView, lineView } from '../subtitles/lines';
 import { isUuid } from '../subtitles/input';
 
@@ -17,13 +18,22 @@ const pageSize = 20;
 class Catalog {
   constructor(private readonly db: Database, private readonly identity: Identity) {}
 
-  series() {
-    return this.db.series.findMany({
+  async series() {
+    const rows = await this.db.series.findMany({
       where: { episodes: { some: readableEpisodes(true) } },
       orderBy: [{ title: 'asc' }, { slug: 'asc' }], take: 100,
-      select: { id: true, slug: true, title: true, language: true, level: true, genre: true,
-        channel: { select: { name: true } } },
+      select: { id: true, slug: true, title: true, description: true, language: true, level: true, genre: true,
+        channel: { select: { name: true } },
+        _count: { select: { episodes: { where: readableEpisodes(true) } } },
+        // The featured episode is the first readable one in series order.
+        episodes: { where: readableEpisodes(true), take: 1,
+          orderBy: [{ episodeNumber: { sort: 'asc', nulls: 'last' } }, { title: 'asc' }, { id: 'asc' }],
+          select: { youtubeId: true } } },
     });
+    return rows.map(({ _count, episodes, ...series }) => ({
+      ...series, episodeCount: _count.episodes,
+      thumbnailUrl: episodes[0] ? youtubeThumbnail(episodes[0].youtubeId) : null,
+    }));
   }
 
   async filters() {
@@ -90,14 +100,9 @@ class Catalog {
         : [{ title: 'asc' }, { id: 'asc' }],
       skip: (pageNumber - 1) * pageSize,
       take: pageSize + 1,
-      select: { id: true, title: true, visibility: true, episodeNumber: true,
-        series: { select: { slug: true, title: true, channel: { select: { name: true } } } },
-        channel: { select: { name: true } } },
+      select: episodeCardSelect,
     });
-    const episodes = rows.slice(0, pageSize).map(({ series, channel, ...item }) => ({
-      ...item, seriesTitle: series?.title ?? null, seriesSlug: series?.slug ?? null,
-      channelName: series?.channel?.name ?? channel?.name ?? null,
-    }));
+    const episodes = rows.slice(0, pageSize).map(episodeMeta);
     return { episodes, page: pageNumber, hasMore: rows.length > pageSize };
   }
 
@@ -106,7 +111,7 @@ class Catalog {
     if (authorization !== undefined) await this.identity.requireActor(authorization);
     const episode = await this.db.episode.findFirst({
       where: { id, ...readableEpisodes(authorization !== undefined) },
-      select: { id: true, title: true, youtubeId: true, published: { select: { id: true, lines: lineView } } },
+      select: { ...episodeCardSelect, published: { select: { id: true, lines: lineView } } },
     });
     if (!episode?.published) {
       if (authorization === undefined && await this.db.episode.count({
@@ -114,8 +119,9 @@ class Catalog {
       })) throw new UnauthorizedException();
       throw new NotFoundException();
     }
-    return { id: episode.id, title: episode.title, youtubeId: episode.youtubeId,
-      revisionId: episode.published.id, cues: episode.published.lines.map(cueView) };
+    const { published, ...card } = episode;
+    return { ...episodeMeta(card), youtubeId: episode.youtubeId,
+      revisionId: published.id, cues: published.lines.map(cueView) };
   }
 }
 

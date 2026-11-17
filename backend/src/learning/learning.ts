@@ -5,6 +5,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { readableEpisodes } from '../catalog/access';
+import { episodeCardSelect, episodeMeta } from '../catalog/views';
 import { Database, DatabaseModule } from '../database';
 import { dictionaryEntry, dictionaryFields, entryIdPattern } from '../dictionary/dictionary';
 import { ApiProblem } from '../http';
@@ -26,6 +27,16 @@ function bookmarkStatusFilter(query: Record<string, unknown>): Prisma.BookmarkWh
     }
   }
   throw new ApiProblem(400, 'INVALID_BOOKMARK_STATUS', 'Supply one episode ID or up to 32 entry IDs');
+}
+
+function checkpointFilter(query: Record<string, unknown>): string[] | undefined {
+  if (Object.keys(query).length === 0) return undefined;
+  const { episodeId } = query;
+  const ids: unknown[] = Array.isArray(episodeId) ? episodeId : [episodeId];
+  if (Object.keys(query).length === 1 && ids.length > 0 && ids.length <= 32 && ids.every(isUuid)) {
+    return [...new Set(ids.map((id) => (id as string).toLowerCase()))];
+  }
+  throw new ApiProblem(400, 'INVALID_CHECKPOINT_QUERY', 'Supply up to 32 episode IDs');
 }
 
 function parseKey(key: string): string {
@@ -127,13 +138,19 @@ export class Learning {
     return { checkpoint: result };
   }
 
-  async latest(accountId: string) {
+  async latest(accountId: string, query: Record<string, unknown> = {}) {
+    const episodeIds = checkpointFilter(query);
     const items = await this.db.checkpoint.findMany({
-      where: { accountId, episode: { is: readableEpisodes(true) } },
-      orderBy: [{ updatedAt: 'desc' }, { episodeId: 'asc' }], take: 5,
-      select: { episodeId: true, positionMs: true, episode: { select: { title: true } } },
+      where: { accountId, episode: { is: readableEpisodes(true) },
+        ...(episodeIds && { episodeId: { in: episodeIds } }) },
+      orderBy: [{ updatedAt: 'desc' }, { episodeId: 'asc' }], ...(!episodeIds && { take: 5 }),
+      select: { episodeId: true, positionMs: true, updatedAt: true,
+        episode: { select: episodeCardSelect } },
     });
-    return { items: items.map(({ episode, ...checkpoint }) => ({ ...checkpoint, title: episode.title })) };
+    return { items: items.map(({ episode, ...checkpoint }) => {
+      const { id: _id, visibility: _visibility, ...card } = episodeMeta(episode);
+      return { ...checkpoint, ...card };
+    }) };
   }
 
   async writeCheckpoint(accountId: string, episodeId: string, body: unknown) {
@@ -194,8 +211,8 @@ class LearningController {
 
   @Get('checkpoints')
   @Header('Cache-Control', 'private, no-store')
-  async latest(@Headers('authorization') auth: string | undefined) {
-    return this.learning.latest((await this.identity.requireActor(auth)).id);
+  async latest(@Headers('authorization') auth: string | undefined, @Query() query: Record<string, unknown>) {
+    return this.learning.latest((await this.identity.requireActor(auth)).id, query);
   }
 
   @Get('checkpoints/:episodeId')

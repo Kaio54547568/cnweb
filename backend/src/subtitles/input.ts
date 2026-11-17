@@ -142,6 +142,14 @@ export function assignCueIds(incoming: IncomingCue[], previous: Pick<Cue, 'id'>[
   });
 }
 
+export function positiveInteger(value: unknown, maximum: number): number | null {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > maximum) {
+    throw new ApiProblem(400, 'INVALID_EPISODE', 'Invalid episode number or duration');
+  }
+  return value;
+}
+
 export function episodeInput(body: unknown) {
   const { title, youtubeId, seriesTitle, channelName, seriesId, channelId, episodeNumber, durationMs } = record(body);
   if (typeof title !== 'string' || !title.trim() || title.trim().length > 200 ||
@@ -160,13 +168,7 @@ export function episodeInput(body: unknown) {
     if (!isUuid(value)) throw new ApiProblem(400, 'INVALID_EPISODE', 'Invalid series or channel ID');
     return value.toLowerCase();
   };
-  const positive = (value: unknown, maximum: number) => {
-    if (value == null || value === '') return null;
-    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > maximum) {
-      throw new ApiProblem(400, 'INVALID_EPISODE', 'Invalid episode number or duration');
-    }
-    return value;
-  };
+  const positive = positiveInteger;
   return { title: title.trim(), youtubeId,
     seriesTitle: optionalLabel(seriesTitle), channelName: optionalLabel(channelName),
     seriesId: optionalId(seriesId), channelId: optionalId(channelId),
