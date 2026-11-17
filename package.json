@@ -1,0 +1,16 @@
+{
+  "name": "cnweb",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Website học ngoại ngữ qua video",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\" --ignore-path .gitignore"
+  }
+}

@@ -1,0 +1,133 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap");
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — mặc định là chế độ tối, [data-theme="light"] là chế độ sáng.
+ * Component chỉ dùng tên ngữ nghĩa (bg-canvas, text-fg, border-line…) nên đổi
+ * chủ đề chỉ cần đổi giá trị biến ở đây.
+ * ------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  --bg-canvas: #18191c;
+  --bg-surface: #24262b;
+  --bg-elevated: #30333a;
+  --border-subtle: #454954;
+  --text-primary: #f5f6f8;
+  --text-secondary: #b8bfcc;
+  --brand-primary: #c9363e;
+  --brand-hover: #ad2c34;
+  --brand-active: #94232a;
+  --brand-selected-bg: #42272c;
+  --state-focus: #93c5fd;
+
+  /* Spacing Scale: 4/8/12/16/24/32/48 */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+
+  /* Border Radius: 8/12/16 */
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-canvas: #f6f5f2;
+  --bg-surface: #ffffff;
+  --bg-elevated: #efede8;
+  --border-subtle: #d8d5ce;
+  --text-primary: #1c1d21;
+  --text-secondary: #5a606c;
+  --brand-primary: #c9363e;
+  --brand-hover: #ad2c34;
+  --brand-active: #94232a;
+  --brand-selected-bg: #fbe8e9;
+  --state-focus: #2563eb;
+}
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-line: var(--border-subtle);
+  --color-fg: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-active: var(--brand-active);
+  --color-brand-tint: var(--brand-selected-bg);
+  --color-focus: var(--state-focus);
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+  }
+
+  .font-jp {
+    font-family: "Noto Sans JP", "Inter", sans-serif;
+  }
+
+  /* Vòng focus thống nhất cho mọi phần tử tương tác (bàn phím) */
+  :focus-visible {
+    outline: 2px solid var(--state-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Ruby / Furigana styling for comfortable bilingual reading */
+ruby {
+  ruby-align: center;
+}
+
+rt {
+  font-size: 0.65em;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.1;
+  user-select: none;
+}
+
+/* Thanh tua video: dùng màu thương hiệu, khớp cả hai chủ đề */
+input[type="range"].seek {
+  accent-color: var(--brand-primary);
+}
+
+/* Scrollbar theo chủ đề */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
